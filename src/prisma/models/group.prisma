@@ -1,0 +1,10 @@
+model Group {
+    id            Int      @id @default(autoincrement())
+    name          String
+    description   String
+    inviteToken   String   @unique
+    tokenExpireAt DateTime
+    createdAt     DateTime
+    
+    experts       Expert[]
+}

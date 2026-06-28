@@ -1,0 +1,6 @@
+model DASS21 {
+    id          String       @id
+    text        String
+    
+    preferences Preferences?
+}

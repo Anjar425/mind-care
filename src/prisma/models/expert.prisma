@@ -1,0 +1,35 @@
+enum Gender {
+    MALE
+    FEMALE
+    NOT_SPECIFIED
+}
+
+enum Education {
+    BACHELOR
+    MASTER
+    DOCTOR
+}
+
+model Expert {
+    id                 String        @id @default(uuid())
+    name               String
+    gender             Gender        @default(NOT_SPECIFIED)
+    address            String?
+    phone              String?
+    photo              String?
+    verifiedUntil      DateTime?
+    updatedAt          DateTime?
+    education          Education?
+    publicationsNumber Int?
+    patientsNumber     Int?
+    yearExperience     Int?
+
+    userId             String        @unique
+    user               User          @relation(fields: [userId], references: [id])
+    
+    weight             Weight?
+    preferences        Preferences[]
+    groups             Group[]
+    rules              Rule[]
+    documents          Document[]
+}
