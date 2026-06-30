@@ -1,0 +1,6 @@
+model DASS42 {
+    id       String    @id
+    text     String
+    
+    premises Premise[]
+}

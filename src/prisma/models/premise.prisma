@@ -1,0 +1,28 @@
+enum PREFIX {
+    NO_PREFIX
+    NOT
+}
+
+enum CONJUCTION {
+    AND
+    OR
+    THEN
+}
+
+enum LEVEL {
+    LOW
+    MEDIUM
+    HIGH
+}
+
+model Premise {
+    id         Int        @id @default(autoincrement())
+    prefix     PREFIX
+    level      LEVEL
+    conjuction CONJUCTION
+
+    dass42Id   String
+    dass42     DASS42     @relation(fields: [dass42Id], references: [id])
+    
+    rules Rule[]
+}

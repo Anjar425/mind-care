@@ -1,0 +1,21 @@
+enum CATEGORY {
+    DEPRESSION
+    ANXIETY
+    STRESS
+}
+
+enum SEVERITY {
+    NORMAL
+    MILD
+    MODERATE
+    SEVERE
+    EXTREMELY_SEVERE
+}
+
+model Conclusion {
+    id       Int      @id @default(autoincrement())
+    category CATEGORY
+    severty  SEVERITY
+    
+    rules    Rule[]
+}
