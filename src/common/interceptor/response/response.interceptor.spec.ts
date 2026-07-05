@@ -3,25 +3,25 @@ import { Reflector } from '@nestjs/core';
 import { ResponseInterceptor } from './response.interceptor';
 
 describe('ResponseInterceptor', () => {
-  let interceptor: ResponseInterceptor;
+	let interceptor: ResponseInterceptor;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ResponseInterceptor,
-        {
-          provide: Reflector,
-          useValue: {
-            get: jest.fn(),
-          },
-        },
-      ],
-    }).compile();
+	beforeEach(async () => {
+		const module: TestingModule = await Test.createTestingModule({
+			providers: [
+				ResponseInterceptor,
+				{
+					provide: Reflector,
+					useValue: {
+						get: jest.fn(),
+					},
+				},
+			],
+		}).compile();
 
-    interceptor = module.get(ResponseInterceptor);
-  });
+		interceptor = module.get(ResponseInterceptor);
+	});
 
-  it('should be defined', () => {
-    expect(interceptor).toBeDefined();
-  });
+	it('should be defined', () => {
+		expect(interceptor).toBeDefined();
+	});
 });
