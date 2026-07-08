@@ -11,9 +11,9 @@ import {
 } from 'class-validator';
 
 export enum UserRole {
+	USER = 'USER',
 	ADMIN = 'ADMIN',
 	EXPERT = 'EXPERT',
-	USER = 'USER',
 }
 
 export class CreateUserDto {
