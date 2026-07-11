@@ -12,7 +12,6 @@ enum Education {
 
 model Expert {
     id                 String        @id @default(uuid())
-    name               String
     gender             Gender        @default(NOT_SPECIFIED)
     address            String?
     phone              String?
