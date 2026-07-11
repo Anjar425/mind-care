@@ -6,13 +6,14 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@/prisma/prisma.service';
-import { RegisterDto } from './dto/register-user.dto';
-import { LoginDto } from './dto/login.dto';
+
 import { UserService } from '@/user/user.service';
-import { UserRole } from '@/user/dto/create-user.dto';
 import { MailService } from '@/mail/mail.service';
 import { generateToken, hashToken } from '@/common/utils/token.util';
 import * as bcrypt from 'bcrypt';
+import { UserRole } from '@/common/constant/role.constant';
+import { RegisterReqDto } from './dto/req/register.req.dto';
+import { LoginReqDto } from './dto/req/login.req.dto';
 
 @Injectable()
 export class AuthService {
@@ -25,7 +26,7 @@ export class AuthService {
 		private readonly mailService: MailService,
 	) {}
 
-	async register(registerDto: RegisterDto, role: UserRole) {
+	async register(registerDto: RegisterReqDto, role: UserRole) {
 		const user = await this.userService.create({
 			name: registerDto.name,
 			email: registerDto.email,
@@ -40,10 +41,10 @@ export class AuthService {
 			);
 		});
 		
-		return user;
+		return {user};
 	}
 
-	async login(dto: LoginDto) {
+	async login(dto: LoginReqDto) {
 		const user = await this.prismaService.user.findUnique({
 			where: { email: dto.email },
 		});
@@ -114,11 +115,7 @@ export class AuthService {
 			where: { email },
 		});
 
-		if (!user) {
-			return {
-				message: 'If email exists, verification link has been sent',
-			};
-		}
+		if (!user) return
 
 		// Invalidate old tokens for this user
 		await this.prismaService.emailVerificationToken.updateMany({
@@ -283,7 +280,7 @@ export class AuthService {
 		};
 
 		return this.jwtService.sign(payload, {
-			secret: process.env.JWT_ACCESS_SECRET || 'access-secret',
+			secret: process.env.JWT_ACCESS_SECRET,
 			expiresIn: '15m',
 		});
 	}
@@ -301,7 +298,7 @@ export class AuthService {
 		};
 
 		return this.jwtService.sign(payload, {
-			secret: process.env.JWT_REFRESH_SECRET || 'refresh-secret',
+			secret: process.env.JWT_REFRESH_SECRET,
 			expiresIn: '7d',
 		});
 	}

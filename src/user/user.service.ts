@@ -3,16 +3,17 @@ import {
 	Injectable,
 	NotFoundException,
 } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+
 import { PrismaService } from '@/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
+import { CreateUserReqDto } from './dto/req/create-user.req.dto';
+import { UpdateUserReqDto } from './dto/req/update-user.req.dto';
 
 @Injectable()
 export class UserService {
 	constructor(private readonly prismaService: PrismaService) {}
 
-	async create(createUserDto: CreateUserDto) {
+	async create(createUserDto: CreateUserReqDto) {
 		const existingUser = await this.prismaService.user.findUnique({
 			where: { email: createUserDto.email },
 		});
@@ -95,7 +96,7 @@ export class UserService {
 		return user;
 	}
 
-	async update(id: string, updateUserDto: UpdateUserDto) {
+	async update(id: string, updateUserDto: UpdateUserReqDto) {
 		const user = await this.prismaService.user.findUnique({
 			where: { id: id },
 		});
@@ -104,15 +105,7 @@ export class UserService {
 			throw new NotFoundException('User not found');
 		}
 
-		let data: UpdateUserDto = { ...updateUserDto };
-
-		if (updateUserDto.password) {
-			const hashedPassword = await bcrypt.hash(
-				updateUserDto.password,
-				10,
-			);
-			data.password = hashedPassword;
-		}
+		let data: UpdateUserReqDto = { ...updateUserDto };
 
 		const updatedUser = await this.prismaService.user.update({
 			where: { id: id },
