@@ -6,6 +6,7 @@ import {
 	Logger,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { DEFAULT_MESSAGE } from '../common/constant/default-message.constant';
 
 @Catch()
 export class AuthExceptionFilter implements ExceptionFilter {
@@ -28,7 +29,7 @@ export class AuthExceptionFilter implements ExceptionFilter {
 		const body: unknown =
 			exception instanceof HttpException ? exception.getResponse() : null;
 		let message = ['Request rejected'];
-		let error = 'Request Error';
+		let error = DEFAULT_MESSAGE[status]?.error ?? 'Request Error';
 		if (typeof body === 'string') message = [body];
 		else if (typeof body === 'object' && body !== null) {
 			if ('message' in body) {

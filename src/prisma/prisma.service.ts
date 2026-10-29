@@ -1,5 +1,6 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import 'dotenv/config';
+import { ConfigService } from '@nestjs/config';
+import type { RuntimeEnvironment } from '../common/config/environment.config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from './generated/client';
 
@@ -8,18 +9,26 @@ export class PrismaService
 	extends PrismaClient
 	implements OnModuleInit, OnModuleDestroy
 {
-	constructor() {
+	constructor(config: ConfigService<RuntimeEnvironment, true>) {
 		const adapter = new PrismaPg({
-			connectionString: process.env.DATABASE_URL,
+			connectionString: config.get('DATABASE_URL', { infer: true }),
 		});
 		super({ adapter });
 	}
 
 	async onModuleInit() {
-		await this.$connect();
+		try {
+			await this.$connect();
+		} catch {
+			throw new Error('Database initialization failed');
+		}
 	}
 
 	async onModuleDestroy() {
-		await this.$disconnect();
+		try {
+			await this.$disconnect();
+		} catch {
+			throw new Error('Database shutdown failed');
+		}
 	}
 }

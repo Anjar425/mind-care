@@ -1,3 +1,4 @@
+import { runtimeConfigProvider } from './runtime-config.mock';
 import {
 	Controller,
 	Get,
@@ -69,6 +70,7 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 			],
 			controllers: [AuthController, ProtectedTestController],
 			providers: [
+				runtimeConfigProvider,
 				AuthService,
 				AuthSessionService,
 				AuthExceptionFilter,
@@ -112,6 +114,10 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 			.post(path)
 			.send({ email: ` ${role}@Example.com `, password })
 			.expect(200);
+		expect(response.body).toHaveProperty('message', 'Login successful');
+		expect(typeof (response.body as { message: unknown }).message).toBe(
+			'string',
+		);
 		return (response.body as { data: SessionTokens }).data;
 	}
 	const bearer = (token: string) => `Bearer ${token}`;

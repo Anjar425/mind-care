@@ -34,4 +34,12 @@ export const DEFAULT_MESSAGE: Record<
 		message: 'Internal Server Error',
 		error: 'Internal Server Error',
 	},
+	[HttpStatus.TOO_MANY_REQUESTS]: {
+		message: 'Too many requests',
+		error: 'Too Many Requests',
+	},
+	[HttpStatus.SERVICE_UNAVAILABLE]: {
+		message: 'Internal server error',
+		error: 'Service Unavailable',
+	},
 };

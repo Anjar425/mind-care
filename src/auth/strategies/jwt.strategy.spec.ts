@@ -1,3 +1,4 @@
+import { runtimeConfigProvider } from '../../../test/runtime-config.mock';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthSessionService } from '../auth-session.service';
 import { JwtStrategy } from './jwt.strategy';
@@ -10,6 +11,7 @@ describe('JwtStrategy', () => {
 		sessions = { validateAccess: jest.fn() };
 		module = await Test.createTestingModule({
 			providers: [
+				runtimeConfigProvider,
 				JwtStrategy,
 				{ provide: AuthSessionService, useValue: sessions },
 			],

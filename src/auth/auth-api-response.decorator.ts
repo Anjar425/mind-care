@@ -7,6 +7,7 @@ import {
 	ApiInternalServerErrorResponse,
 	ApiOkResponse,
 	ApiUnauthorizedResponse,
+	ApiTooManyRequestsResponse,
 	getSchemaPath,
 } from '@nestjs/swagger';
 import type { ApiResponseSchemaHost } from '@nestjs/swagger';
@@ -52,6 +53,7 @@ export function AuthApiResponse(
 		401: ApiUnauthorizedResponse,
 		409: ApiConflictResponse,
 		500: ApiInternalServerErrorResponse,
+		429: ApiTooManyRequestsResponse,
 	};
 	const errorExamples = {
 		400: { message: ['Invalid request'], error: 'Bad Request' },
@@ -64,6 +66,7 @@ export function AuthApiResponse(
 			message: ['Internal server error'],
 			error: 'Internal Server Error',
 		},
+		429: { message: ['Too many requests'], error: 'Too Many Requests' },
 	};
 	return applyDecorators(
 		MessageResponse(message),
@@ -76,7 +79,7 @@ export function AuthApiResponse(
 			description: message,
 			schema,
 		}),
-		...errors.map((error) =>
+		...[...new Set([...errors, 429 as const])].map((error) =>
 			errorDecorators[error]({
 				schema: {
 					allOf: [

@@ -1,3 +1,4 @@
+import { runtimeConfigProvider } from '../../../test/runtime-config.mock';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { Request } from 'express';
 import { AuthSessionService } from '../auth-session.service';
@@ -11,6 +12,7 @@ describe('RefreshStrategy', () => {
 		sessions = { validateRefresh: jest.fn() };
 		module = await Test.createTestingModule({
 			providers: [
+				runtimeConfigProvider,
 				RefreshStrategy,
 				{ provide: AuthSessionService, useValue: sessions },
 			],

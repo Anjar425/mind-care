@@ -1,5 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import type { RuntimeEnvironment } from '../common/config/environment.config';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '@/prisma/prisma.service';
 import { hashToken } from '@/common/utils/token.util';
@@ -24,6 +26,7 @@ export class AuthSessionService {
 	constructor(
 		private readonly prisma: PrismaService,
 		private readonly jwt: JwtService,
+		private readonly config: ConfigService<RuntimeEnvironment, true>,
 	) {}
 
 	async create(
@@ -162,7 +165,9 @@ export class AuthSessionService {
 			accessToken: this.jwt.sign(
 				{ ...base, type: 'access', jti: randomUUID() },
 				{
-					secret: process.env.JWT_ACCESS_SECRET,
+					secret: this.config.get('JWT_ACCESS_SECRET', {
+						infer: true,
+					}),
 					algorithm: 'HS256',
 					expiresIn: '15m',
 				},
@@ -175,7 +180,9 @@ export class AuthSessionService {
 					exp: Math.floor(expiresAt.getTime() / 1000),
 				},
 				{
-					secret: process.env.JWT_REFRESH_SECRET,
+					secret: this.config.get('JWT_REFRESH_SECRET', {
+						infer: true,
+					}),
 					algorithm: 'HS256',
 				},
 			),
