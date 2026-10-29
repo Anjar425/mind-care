@@ -1,6 +1,9 @@
 model DASS21 {
-    id          String       @id
-    text        String
-    
-    preferences Preferences?
+  id             String   @id
+  text           String
+  number         Int      @unique
+  category       CATEGORY
+  catalogVersion String
+
+  preferences Preferences?
 }
