@@ -1,39 +1,23 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { PrismaService } from '@/prisma/prisma.service';
-
-interface RefreshTokenPayload {
-	sub: string;
-	email: string;
-	role: string;
-	type: 'refresh';
-}
+import type { Request } from 'express';
+import { AuthSessionService } from '../auth-session.service';
 
 @Injectable()
 export class RefreshStrategy extends PassportStrategy(Strategy, 'refresh-jwt') {
-	constructor(private readonly prismaService: PrismaService) {
+	constructor(private readonly sessions: AuthSessionService) {
 		super({
 			jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
 			ignoreExpiration: false,
-			secretOrKey: process.env.JWT_REFRESH_SECRET ,
+			secretOrKey: process.env.JWT_REFRESH_SECRET,
+			algorithms: ['HS256'],
+			passReqToCallback: true,
 		});
 	}
 
-	async validate(payload: RefreshTokenPayload) {
-		const token = await this.prismaService.refreshToken.findFirst({
-			where: {
-				userId: payload.sub,
-				expiresAt: {
-					gt: new Date(),
-				},
-			},
-		});
-
-		if (!token) {
-			throw new UnauthorizedException('Invalid refresh token');
-		}
-
-		return payload;
+	validate(request: Request, payload: unknown) {
+		const token = ExtractJwt.fromAuthHeaderAsBearerToken()(request);
+		return this.sessions.validateRefresh(payload, token ?? '');
 	}
 }

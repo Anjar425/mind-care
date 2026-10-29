@@ -10,6 +10,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { RefreshStrategy } from './strategies/refresh.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshAuthGuard } from './guards/refresh-auth.guard';
+import { AuthSessionService } from './auth-session.service';
+import { AuthExceptionFilter } from './auth-exception.filter';
 
 @Module({
 	imports: [
@@ -24,6 +26,8 @@ import { RefreshAuthGuard } from './guards/refresh-auth.guard';
 	controllers: [AuthController],
 	providers: [
 		AuthService,
+		AuthSessionService,
+		AuthExceptionFilter,
 		UserService,
 		JwtStrategy,
 		RefreshStrategy,

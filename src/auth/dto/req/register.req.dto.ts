@@ -8,7 +8,10 @@ export class RegisterReqDto extends PickType(UserDto, [
 	'name',
 	'password',
 ] as const) {
-	@ApiProperty({ example: 'Passw0rd123' })
+	@ApiProperty({
+		description: 'Must exactly match password',
+		example: 'Passw0rd123',
+	})
 	@IsNotEmpty()
 	@IsString()
 	@Match('password', { message: 'confirm_password must match password' })
