@@ -6,19 +6,32 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { map, Observable } from 'rxjs';
+import type { Response } from 'express';
+
+export interface ResponseEnvelope<T> {
+	statusCode: number;
+	message: string;
+	data?: T;
+}
+
 @Injectable()
-export class ResponseInterceptor implements NestInterceptor {
+export class ResponseInterceptor<T = unknown> implements NestInterceptor<
+	T,
+	ResponseEnvelope<T>
+> {
 	constructor(private readonly reflector: Reflector) {}
 
-	intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-		const response = context.switchToHttp().getResponse();
+	intercept(
+		context: ExecutionContext,
+		next: CallHandler<T>,
+	): Observable<ResponseEnvelope<T>> {
+		const response = context.switchToHttp().getResponse<Response>();
 
-		const message =
-			this.reflector.get<string>(
-				'response_message',
-				context.getHandler(),
-			) ??
-			'Success';
+		const metadata = this.reflector.get<unknown>(
+			'response_message',
+			context.getHandler(),
+		);
+		const message = typeof metadata === 'string' ? metadata : 'Success';
 
 		return next.handle().pipe(
 			map((data) => ({

@@ -1,3 +1,4 @@
+import { runtimeConfigProvider } from '../../test/runtime-config.mock';
 import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
@@ -47,6 +48,7 @@ describe('AuthService', () => {
 			.mockImplementation(() => undefined);
 		module = await Test.createTestingModule({
 			providers: [
+				runtimeConfigProvider,
 				AuthService,
 				{ provide: PrismaService, useValue: prisma },
 				{ provide: UserService, useValue: users },

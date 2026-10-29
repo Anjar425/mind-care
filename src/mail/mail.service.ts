@@ -1,16 +1,21 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { RuntimeEnvironment } from '../common/config/environment.config';
 import { MailerService } from '@nestjs-modules/mailer';
 
 @Injectable()
 export class MailService {
-	constructor(private readonly mailerService: MailerService) {}
+	constructor(
+		private readonly mailerService: MailerService,
+		private readonly config: ConfigService<RuntimeEnvironment, true>,
+	) {}
 
 	async sendVerificationEmail(
 		email: string,
 		token: string,
 		firstName: string,
 	): Promise<void> {
-		const verificationUrl = `${process.env.APP_URL}/auth/verify?token=${token}`;
+		const verificationUrl = `${this.config.get('APP_URL', { infer: true })}/auth/verify?token=${token}`;
 		const htmlContent = this.getVerificationEmailTemplate(
 			firstName,
 			verificationUrl,
@@ -28,7 +33,7 @@ export class MailService {
 		token: string,
 		firstName: string,
 	): Promise<void> {
-		const resetUrl = `${process.env.APP_URL}/auth/reset-password?token=${token}`;
+		const resetUrl = `${this.config.get('APP_URL', { infer: true })}/auth/reset-password?token=${token}`;
 		const htmlContent = this.getPasswordResetEmailTemplate(
 			firstName,
 			resetUrl,

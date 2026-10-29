@@ -6,6 +6,8 @@ import {
 	UnauthorizedException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { ConfigService } from '@nestjs/config';
+import type { RuntimeEnvironment } from '../common/config/environment.config';
 import { PrismaService } from '@/prisma/prisma.service';
 import { UserService } from '@/user/user.service';
 import { MailService } from '@/mail/mail.service';
@@ -31,6 +33,7 @@ export class AuthService {
 		private readonly userService: UserService,
 		private readonly sessions: AuthSessionService,
 		private readonly mailService: MailService,
+		private readonly config: ConfigService<RuntimeEnvironment, true>,
 	) {}
 
 	async register(dto: RegisterReqDto, role: UserRole) {
@@ -94,7 +97,9 @@ export class AuthService {
 			if (!user || user.email_verified_at) return;
 			const rawToken = generateToken();
 			const expiresAt = this.expiry(
-				process.env.VERIFICATION_TOKEN_EXPIRY_MINUTES,
+				this.config.get('VERIFICATION_TOKEN_EXPIRY_MINUTES', {
+					infer: true,
+				}),
 			);
 			await authTransaction(this.prismaService, async (tx) => {
 				await tx.emailVerificationToken.updateMany({
@@ -163,7 +168,7 @@ export class AuthService {
 			if (!user) return;
 			const rawToken = generateToken();
 			const expiresAt = this.expiry(
-				process.env.RESET_TOKEN_EXPIRY_MINUTES,
+				this.config.get('RESET_TOKEN_EXPIRY_MINUTES', { infer: true }),
 			);
 			await authTransaction(this.prismaService, async (tx) => {
 				await tx.passwordResetToken.updateMany({
@@ -227,7 +232,7 @@ export class AuthService {
 		return { message: 'Password reset successfully' };
 	}
 
-	private expiry(configuredMinutes: string | undefined): Date {
+	private expiry(configuredMinutes: number | undefined): Date {
 		// Preserve the existing 15-minute fallback; deployment policy is still undecided.
 		const minutes = configuredMinutes ? Number(configuredMinutes) : 15;
 		const expiresAt = new Date(Date.now() + minutes * 60 * 1000);

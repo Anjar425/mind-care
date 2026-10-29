@@ -1,8 +1,17 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { SWAGGER_INFO, SWAGGER_TAGS, SWAGGER_BEARER_AUTH } from './swagger.config';
+import {
+	SWAGGER_INFO,
+	SWAGGER_TAGS,
+	SWAGGER_BEARER_AUTH,
+} from './swagger.config';
+import type { RuntimeEnvironment } from '../environment.config';
 
-export function setupSwagger(app: INestApplication): void {
+export function setupSwagger(
+	app: INestApplication,
+	environment: RuntimeEnvironment['NODE_ENV'],
+): void {
+	if (environment === 'production') return;
 	const documentBuilder = new DocumentBuilder()
 		.setTitle(SWAGGER_INFO.title)
 		.setDescription(SWAGGER_INFO.description)
@@ -29,7 +38,7 @@ export function setupSwagger(app: INestApplication): void {
 	SwaggerModule.setup('docs', app, document, {
 		swaggerOptions: {
 			defaultModelsExpandDepth: -1,
-			persistAuthorization: true, // token tetap tersimpan meski halaman di-refresh
+			persistAuthorization: false,
 		},
 	});
 }

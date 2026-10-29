@@ -1,22 +1,27 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { RuntimeEnvironment } from '../common/config/environment.config';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { MailService } from './mail.service';
 
 @Module({
 	imports: [
-		MailerModule.forRoot({
-			transport: {
-				host: process.env.MAIL_HOST || 'smtp.gmail.com',
-				port: parseInt(process.env.MAIL_PORT || '587'),
-				secure: process.env.MAIL_SECURE === 'true',
-				auth: {
-					user: process.env.MAIL_USER,
-					pass: process.env.MAIL_PASS,
+		MailerModule.forRootAsync({
+			inject: [ConfigService],
+			useFactory: (config: ConfigService<RuntimeEnvironment, true>) => ({
+				transport: {
+					host: config.get('MAIL_HOST', { infer: true }),
+					port: config.get('MAIL_PORT', { infer: true }),
+					secure: config.get('MAIL_SECURE', { infer: true }),
+					auth: {
+						user: config.get('MAIL_USER', { infer: true }),
+						pass: config.get('MAIL_PASS', { infer: true }),
+					},
 				},
-			},
-			defaults: {
-				from: process.env.MAIL_FROM || '"MindCare" <noreply@mindcare.com>',
-			},
+				defaults: {
+					from: config.get('MAIL_FROM', { infer: true }),
+				},
+			}),
 		}),
 	],
 	providers: [MailService],

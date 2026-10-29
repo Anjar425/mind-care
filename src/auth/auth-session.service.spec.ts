@@ -1,3 +1,4 @@
+import { runtimeConfigProvider } from '../../test/runtime-config.mock';
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -29,6 +30,7 @@ describe('AuthSessionService', () => {
 		prisma = createPrismaMock();
 		module = await Test.createTestingModule({
 			providers: [
+				runtimeConfigProvider,
 				AuthSessionService,
 				{ provide: PrismaService, useValue: prisma },
 				{ provide: JwtService, useValue: jwt },
