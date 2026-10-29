@@ -1,5 +1,6 @@
 import {
 	ConflictException,
+	BadRequestException,
 	Injectable,
 	NotFoundException,
 } from '@nestjs/common';
@@ -8,40 +9,55 @@ import { PrismaService } from '@/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { CreateUserReqDto } from './dto/req/create-user.req.dto';
 import { UpdateUserReqDto } from './dto/req/update-user.req.dto';
+import {
+	assertPassword,
+	normalizeEmail,
+} from '@/common/utils/account-validation.util';
+
+const SAFE_USER_SELECT = {
+	id: true,
+	name: true,
+	email: true,
+	role: true,
+	created_at: true,
+} as const;
 
 @Injectable()
 export class UserService {
 	constructor(private readonly prismaService: PrismaService) {}
 
 	async create(createUserDto: CreateUserReqDto) {
-		const existingUser = await this.prismaService.user.findUnique({
-			where: { email: createUserDto.email },
-		});
-
-		if (existingUser) {
-			throw new ConflictException('User already exists');
-		}
-
+		assertPassword(createUserDto.password);
+		const email = normalizeEmail(createUserDto.email);
+		await this.assertEmailAvailable(email);
 		const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+		try {
+			return await this.prismaService.user.create({
+				data: {
+					email,
+					name: createUserDto.name,
+					password: hashedPassword,
+					role: createUserDto.role,
+					created_at: new Date(),
+				},
+				select: SAFE_USER_SELECT,
+			});
+		} catch (error: unknown) {
+			this.rethrowWriteError(error);
+		}
+	}
 
-		const user = await this.prismaService.user.create({
-			data: {
-				email: createUserDto.email,
-				name: createUserDto.name,
-				password: hashedPassword,
-				role: createUserDto.role,
-				created_at: new Date(),
-			},
-			select: {
-				id: true,
-				name: true,
-				email: true,
-				role: true,
-				created_at: true,
-			},
+	async findForAuthentication(email: string) {
+		const canonical = normalizeEmail(email);
+		if (!canonical) return null;
+		// Include legacy surrounding whitespace, then compare exact canonical identities.
+		const candidates = await this.prismaService.user.findMany({
+			where: { email: { contains: canonical, mode: 'insensitive' } },
 		});
-
-		return user;
+		const matches = candidates.filter(
+			(user) => normalizeEmail(user.email) === canonical,
+		);
+		return matches.length === 1 ? matches[0] : null;
 	}
 
 	async findAll() {
@@ -78,22 +94,19 @@ export class UserService {
 	}
 
 	async findOneByEmail(email: string) {
-		const user = await this.prismaService.user.findUnique({
-			where: { email: email },
-			select: {
-				id: true,
-				name: true,
-				email: true,
-				role: true,
-				created_at: true,
-			},
-		});
+		const user = await this.findForAuthentication(email);
 
 		if (!user) {
 			throw new NotFoundException('User not found');
 		}
 
-		return user;
+		return {
+			id: user.id,
+			name: user.name,
+			email: user.email,
+			role: user.role,
+			created_at: user.created_at,
+		};
 	}
 
 	async update(id: string, updateUserDto: UpdateUserReqDto) {
@@ -105,21 +118,60 @@ export class UserService {
 			throw new NotFoundException('User not found');
 		}
 
-		let data: UpdateUserReqDto = { ...updateUserDto };
+		const data: UpdateUserReqDto = { ...updateUserDto };
+		if (data.email !== undefined) {
+			if (typeof data.email !== 'string')
+				throw new BadRequestException('email must be a string');
+			data.email = normalizeEmail(data.email);
+			await this.assertEmailAvailable(data.email, id);
+		}
 
-		const updatedUser = await this.prismaService.user.update({
-			where: { id: id },
-			data: data,
-			select: {
-				id: true,
-				name: true,
-				email: true,
-				role: true,
-				created_at: true,
-			},
+		try {
+			return await this.prismaService.user.update({
+				where: { id: id },
+				data: data,
+				select: {
+					id: true,
+					name: true,
+					email: true,
+					role: true,
+					created_at: true,
+				},
+			});
+		} catch (error: unknown) {
+			this.rethrowWriteError(error);
+		}
+	}
+
+	private async assertEmailAvailable(
+		email: string,
+		exceptId?: string,
+	): Promise<void> {
+		const candidates = await this.prismaService.user.findMany({
+			where: { email: { contains: email, mode: 'insensitive' } },
+			select: { id: true, email: true },
 		});
+		if (
+			candidates.some(
+				(user) =>
+					user.id !== exceptId &&
+					normalizeEmail(user.email) === email,
+			)
+		) {
+			throw new ConflictException('Account identity already exists');
+		}
+	}
 
-		return updatedUser;
+	private rethrowWriteError(error: unknown): never {
+		if (
+			typeof error === 'object' &&
+			error !== null &&
+			'code' in error &&
+			error.code === 'P2002'
+		) {
+			throw new ConflictException('Account identity already exists');
+		}
+		throw error;
 	}
 
 	async remove(id: string) {

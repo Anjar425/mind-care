@@ -1,157 +1,191 @@
 import {
 	Body,
 	Controller,
-	Post,
-	Req,
-	UseGuards,
 	Get,
-	Query,
 	HttpCode,
 	HttpStatus,
+	Post,
+	Query,
+	Req,
+	UseFilters,
+	UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-
+import { UserRole } from '@/common/constant/role.constant';
 import { AuthService } from './auth.service';
-
+import { AuthApiResponse } from './auth-api-response.decorator';
+import { AuthExceptionFilter } from './auth-exception.filter';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshAuthGuard } from './guards/refresh-auth.guard';
-
-import { MessageResponse } from '@/common/decorator/api/message-response.decorator';
-import { ApiCommonResponse } from '@/common/decorator/api/api-common-response.decorator';
-
-import { UserRole } from '@/common/constant/role.constant';
-import { RegisterResDto } from './dto/res/register.res.dto';
 import { RegisterReqDto } from './dto/req/register.req.dto';
-import { LoginResDto } from './dto/res/login.res.dto';
 import { LoginReqDto } from './dto/req/login.req.dto';
 import { EmailVerificationReqDto } from './dto/req/email-verification.req.dto';
 import { ForgotPasswordReqDto } from './dto/req/forgot-password.req.dto';
 import { ResetPasswordReqDto } from './dto/req/reset-password.req.dto';
+import { VerifyAccountReqDto } from './dto/req/verify-account.req.dto';
+import { RegisterResDto } from './dto/res/register.res.dto';
+import { LoginResDto } from './dto/res/login.res.dto';
+import { AuthMessageResDto } from './dto/res/auth-response.dto';
+import type { AccessPrincipal, RefreshPrincipal } from './session.types';
 
 @ApiTags('Auth')
+@UseFilters(AuthExceptionFilter)
 @Controller('auth')
 export class AuthController {
 	constructor(private readonly authService: AuthService) {}
 
 	@Post('/user/register')
-	@MessageResponse('User Created Successfully')
 	@HttpCode(HttpStatus.CREATED)
-	@ApiOperation({
-		summary: 'Register new user',
-		description:
-			'Creates a new user account with USER role using email, name, and password. Email verification may be required before accessing protected resources.',
-	})
-	@ApiCommonResponse([201, 400, 409, 500], {
-		model: RegisterResDto,
-	})
+	@ApiOperation({ summary: 'Register an ordinary user' })
+	@AuthApiResponse(
+		201,
+		'User created successfully',
+		RegisterResDto,
+		[400, 409, 500],
+	)
 	userRegister(@Body() dto: RegisterReqDto) {
 		return this.authService.register(dto, UserRole.USER);
 	}
 
 	@Post('/expert/register')
-	@MessageResponse('Expert Created Successfully')
 	@HttpCode(HttpStatus.CREATED)
 	@ApiOperation({
-		summary: 'Register new expert user',
+		summary: 'Register an expert account',
 		description:
-			'Creates a new expert account with EXPERT role using email, name, and password. Expert accounts may require additional verification before use.',
+			'Credential approval and calculation eligibility are separate from account registration.',
 	})
-	@ApiCommonResponse([201, 400, 409, 500], {
-		model: RegisterResDto,
-	})
+	@AuthApiResponse(
+		201,
+		'Expert account created successfully',
+		RegisterResDto,
+		[400, 409, 500],
+	)
 	expertRegister(@Body() dto: RegisterReqDto) {
 		return this.authService.register(dto, UserRole.EXPERT);
 	}
 
 	@Post('/login')
-	@MessageResponse('Login successful')
 	@HttpCode(HttpStatus.OK)
 	@ApiOperation({
-		summary: 'User login',
+		summary: 'Sign in an ordinary user',
 		description:
-			'Authenticates a user using email and password, then returns an access token and refresh token.',
+			'Accepts USER accounts only. Legacy tokens without a session identity require a new sign-in.',
 	})
-	@ApiCommonResponse([200, 400, 401, 500], {
-		model: LoginResDto,
-	})
+	@AuthApiResponse(200, 'Login successful', LoginResDto, [400, 401, 409, 500])
 	login(@Body() dto: LoginReqDto) {
-		return this.authService.login(dto);
+		return this.authService.login(dto, UserRole.USER);
+	}
+
+	@Post('/expert/login')
+	@HttpCode(HttpStatus.OK)
+	@ApiOperation({
+		summary: 'Sign in an expert account',
+		description:
+			'Accepts EXPERT accounts only; sign-in does not approve professional credentials.',
+	})
+	@AuthApiResponse(200, 'Login successful', LoginResDto, [400, 401, 409, 500])
+	expertLogin(@Body() dto: LoginReqDto) {
+		return this.authService.login(dto, UserRole.EXPERT);
+	}
+
+	@Post('/admin/login')
+	@HttpCode(HttpStatus.OK)
+	@ApiOperation({
+		summary: 'Sign in an existing administrator',
+		description:
+			'Accepts ADMIN accounts only. No public administrator registration is provided.',
+	})
+	@AuthApiResponse(200, 'Login successful', LoginResDto, [400, 401, 409, 500])
+	adminLogin(@Body() dto: LoginReqDto) {
+		return this.authService.login(dto, UserRole.ADMIN);
 	}
 
 	@Post('/refresh')
+	@HttpCode(HttpStatus.OK)
 	@UseGuards(RefreshAuthGuard)
 	@ApiBearerAuth('refresh-token')
-	@MessageResponse('Token refreshed successfully')
 	@ApiOperation({
-		summary: 'Refresh access token',
+		summary: 'Rotate the current session tokens',
 		description:
-			'Generates a new access token using a valid refresh token.',
+			'Replace both tokens with this response. Reusing a consumed refresh token revokes its session.',
 	})
-	@ApiCommonResponse([200, 401, 500])
-	refresh(@Req() req: any) {
+	@AuthApiResponse(
+		200,
+		'Tokens refreshed successfully',
+		LoginResDto,
+		[401, 500],
+	)
+	refresh(@Req() req: { user: RefreshPrincipal }) {
 		return this.authService.refresh(req.user);
 	}
 
 	@Post('/logout')
+	@HttpCode(HttpStatus.OK)
 	@UseGuards(JwtAuthGuard)
 	@ApiBearerAuth('access-token')
-	@MessageResponse('Logout successful')
 	@ApiOperation({
-		summary: 'User logout',
+		summary: 'Revoke only the current session',
 		description:
-			'Invalidates the current user session and logs the user out.',
+			'Access and refresh credentials for this session are rejected afterward; other sessions remain active.',
 	})
-	@ApiCommonResponse([200, 401, 500])
-	logout(@Req() req: any) {
-		return this.authService.logout(req.user.sub);
+	@AuthApiResponse(200, 'Logout successful', AuthMessageResDto, [401, 500])
+	logout(@Req() req: { user: AccessPrincipal }) {
+		return this.authService.logout(req.user);
 	}
 
 	@Post('/send-verification')
-	@MessageResponse('Verification email sent')
 	@HttpCode(HttpStatus.OK)
-	@ApiOperation({
-		summary: 'Send email verification',
-		description:
-			'Sends a verification email containing a verification link to the user email address.',
-	})
-	@ApiCommonResponse([200, 400, 500])
+	@ApiOperation({ summary: 'Request an email verification link' })
+	@AuthApiResponse(
+		200,
+		'If the account is eligible, a verification link will be sent',
+	)
 	sendVerification(@Body() dto: EmailVerificationReqDto) {
 		return this.authService.sendVerificationEmail(dto.email);
 	}
 
 	@Get('/verify')
-	@MessageResponse('Email verified successfully')
 	@ApiOperation({
-		summary: 'Verify user email',
-		description:
-			'Verifies a user email address using the verification token provided in the query parameter.',
+		summary: 'Verify an account email with a single-use token',
 	})
-	@ApiCommonResponse([200, 400, 404, 500])
-	verifyAccount(@Query('token') token: string) {
-		return this.authService.verifyAccount(token);
+	@AuthApiResponse(
+		200,
+		'Email verified successfully',
+		undefined,
+		[400, 409, 500],
+	)
+	verifyAccount(@Query() dto: VerifyAccountReqDto) {
+		return this.authService.verifyAccount(dto.token);
 	}
 
 	@Post('/forgot-password')
-	@MessageResponse('Password reset email sent')
 	@HttpCode(HttpStatus.OK)
 	@ApiOperation({
-		summary: 'Request password reset',
+		summary: 'Request a password reset link',
 		description:
-			'Sends a password reset email containing a reset token to the user email address.',
+			'The response does not disclose whether an account exists.',
 	})
-	@ApiCommonResponse([200, 400, 404, 500])
+	@AuthApiResponse(
+		200,
+		'If the account is eligible, a password reset link will be sent',
+	)
 	forgotPassword(@Body() dto: ForgotPasswordReqDto) {
 		return this.authService.forgotPassword(dto.email);
 	}
 
 	@Post('/reset-password')
-	@MessageResponse('Password reset successfully')
+	@HttpCode(HttpStatus.OK)
 	@ApiOperation({
-		summary: 'Reset user password',
+		summary: 'Reset the password and revoke every session',
 		description:
-			'Updates the user password using a valid password reset token.',
+			'Uses the registration password policy and consumes the reset token once. All previous access and refresh sessions are rejected.',
 	})
-	@ApiCommonResponse([200, 400, 401, 500])
+	@AuthApiResponse(
+		200,
+		'Password reset successfully',
+		AuthMessageResDto,
+		[400, 409, 500],
+	)
 	resetPassword(@Body() dto: ResetPasswordReqDto) {
 		return this.authService.resetPassword(dto.token, dto.newPassword);
 	}
