@@ -1,6 +1,9 @@
 model DASS42 {
-    id       String    @id
-    text     String
-    
-    premises Premise[]
+  id             String   @id
+  text           String
+  number         Int      @unique
+  category       CATEGORY
+  catalogVersion String
+
+  premises Premise[]
 }

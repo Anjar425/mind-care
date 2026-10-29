@@ -12,6 +12,7 @@ import { ApiRateLimitGuard } from './common/guards/api-rate-limit.guard';
 import { HealthModule } from './health/health.module';
 import { ConfigService } from '@nestjs/config';
 import type { RuntimeEnvironment } from './common/config/environment.config';
+import { ReferenceDataModule } from './reference-data/reference-data.module';
 
 @Module({
 	imports: [
@@ -28,6 +29,7 @@ import type { RuntimeEnvironment } from './common/config/environment.config';
 		AuthModule,
 		PrismaModule,
 		HealthModule,
+		ReferenceDataModule,
 	],
 	controllers: [AppController],
 	providers: [

@@ -1,0 +1,12 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"rootDir": ".",
+		"outDir": "./dist/reference-seed",
+		"noEmitOnError": true,
+		"incremental": false,
+		"types": ["node"]
+	},
+	"include": ["scripts/seed-reference-data.ts"],
+	"exclude": ["node_modules", "test", "dist", "**/*.spec.ts"]
+}
