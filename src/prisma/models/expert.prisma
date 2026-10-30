@@ -21,7 +21,9 @@ model Expert {
     education          Education?
     publicationsNumber Int?
     patientsNumber     Int?
-    yearExperience     Int?
+    clinicalHours      Int?
+    profileVersion     Int                  @default(0)
+    profileValidatedAt DateTime?
 
     userId String @unique
     user   User   @relation(fields: [userId], references: [id])
