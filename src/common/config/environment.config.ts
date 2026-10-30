@@ -22,6 +22,13 @@ export interface RuntimeEnvironment {
 	RATE_LIMIT_SEND_VERIFICATION: number;
 	RATE_LIMIT_REFRESH: number;
 	HEALTH_CHECK_TIMEOUT_MS: number;
+	CREDENTIAL_STORAGE_ROOT: string;
+	CREDENTIAL_ENCRYPTION_KEY: string;
+	CREDENTIAL_LOOKUP_KEY: string;
+	CREDENTIAL_UPLOAD_MAX_BYTES: number;
+	CREDENTIAL_UPLOAD_RATE_LIMIT: number;
+	CREDENTIAL_REMINDER_LEAD_DAYS: number;
+	CREDENTIAL_REMINDER_HOUR: number;
 }
 
 // Errors identify settings, never their submitted values.
@@ -95,6 +102,25 @@ export function validateEnvironment(
 	}
 	const config: RuntimeEnvironment = {
 		NODE_ENV: mode as RuntimeEnvironment['NODE_ENV'],
+		CREDENTIAL_STORAGE_ROOT: text('CREDENTIAL_STORAGE_ROOT'),
+		CREDENTIAL_ENCRYPTION_KEY: text('CREDENTIAL_ENCRYPTION_KEY'),
+		CREDENTIAL_LOOKUP_KEY: text('CREDENTIAL_LOOKUP_KEY'),
+		CREDENTIAL_UPLOAD_MAX_BYTES: integer(
+			'CREDENTIAL_UPLOAD_MAX_BYTES',
+			5242880,
+			5242880,
+		),
+		CREDENTIAL_UPLOAD_RATE_LIMIT: integer(
+			'CREDENTIAL_UPLOAD_RATE_LIMIT',
+			3,
+			120,
+		),
+		CREDENTIAL_REMINDER_LEAD_DAYS: integer(
+			'CREDENTIAL_REMINDER_LEAD_DAYS',
+			30,
+			30,
+		),
+		CREDENTIAL_REMINDER_HOUR: integer('CREDENTIAL_REMINDER_HOUR', 9, 23),
 		PORT: integer('PORT', 3000, 65535),
 		DATABASE_URL: url('DATABASE_URL', ['postgres:', 'postgresql:']),
 		JWT_ACCESS_SECRET: access,
@@ -158,6 +184,19 @@ export function validateEnvironment(
 			2147483647,
 		),
 	};
+	for (const key of [
+		'CREDENTIAL_ENCRYPTION_KEY',
+		'CREDENTIAL_LOOKUP_KEY',
+	] as const) {
+		if (!/^[a-fA-F0-9]{64}$/.test(config[key])) invalid.add(key);
+	}
+	if (
+		config.CREDENTIAL_ENCRYPTION_KEY.toLowerCase() ===
+		config.CREDENTIAL_LOOKUP_KEY.toLowerCase()
+	)
+		invalid.add('CREDENTIAL_LOOKUP_KEY');
+	if (!/^\.private\/[a-zA-Z0-9_-]+$/.test(config.CREDENTIAL_STORAGE_ROOT))
+		invalid.add('CREDENTIAL_STORAGE_ROOT');
 	if (invalid.size)
 		throw new Error(
 			`Invalid configuration: ${[...invalid].sort().join(', ')}`,

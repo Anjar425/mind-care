@@ -39,5 +39,6 @@ import { AuthExceptionFilter } from './auth-exception.filter';
 		JwtAuthGuard,
 		RefreshAuthGuard,
 	],
+	exports: [JwtAuthGuard, PassportModule],
 })
 export class AuthModule {}

@@ -10,6 +10,18 @@ export class MailService {
 		private readonly config: ConfigService<RuntimeEnvironment, true>,
 	) {}
 
+	async sendCredentialExpiryReminder(
+		email: string,
+		type: 'STR' | 'SIP',
+		expiryDate: string,
+	): Promise<void> {
+		await this.mailerService.sendMail({
+			to: email,
+			subject: `${type} credential expiry reminder - MindCare`,
+			text: `Your ${type} credential is valid through ${expiryDate} (Asia/Jakarta). Submit a renewal for review before expiry to maintain contribution eligibility. This message does not contain screening results.`,
+		});
+	}
+
 	async sendVerificationEmail(
 		email: string,
 		token: string,

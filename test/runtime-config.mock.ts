@@ -25,6 +25,13 @@ export const syntheticConfig: RuntimeEnvironment = {
 	RATE_LIMIT_SEND_VERIFICATION: 3,
 	RATE_LIMIT_REFRESH: 30,
 	HEALTH_CHECK_TIMEOUT_MS: 1000,
+	CREDENTIAL_STORAGE_ROOT: '.private/credentials',
+	CREDENTIAL_ENCRYPTION_KEY: 'a'.repeat(64),
+	CREDENTIAL_LOOKUP_KEY: 'b'.repeat(64),
+	CREDENTIAL_UPLOAD_MAX_BYTES: 5242880,
+	CREDENTIAL_UPLOAD_RATE_LIMIT: 3,
+	CREDENTIAL_REMINDER_LEAD_DAYS: 30,
+	CREDENTIAL_REMINDER_HOUR: 9,
 };
 export const runtimeConfigMock = {
 	get: jest.fn((key: keyof RuntimeEnvironment) => syntheticConfig[key]),

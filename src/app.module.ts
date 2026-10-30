@@ -13,6 +13,7 @@ import { HealthModule } from './health/health.module';
 import { ConfigService } from '@nestjs/config';
 import type { RuntimeEnvironment } from './common/config/environment.config';
 import { ReferenceDataModule } from './reference-data/reference-data.module';
+import { ExpertCredentialsModule } from './expert-credentials/expert-credentials.module';
 
 @Module({
 	imports: [
@@ -30,6 +31,7 @@ import { ReferenceDataModule } from './reference-data/reference-data.module';
 		PrismaModule,
 		HealthModule,
 		ReferenceDataModule,
+		ExpertCredentialsModule,
 	],
 	controllers: [AppController],
 	providers: [
