@@ -15,6 +15,7 @@ import type { RuntimeEnvironment } from './common/config/environment.config';
 import { ReferenceDataModule } from './reference-data/reference-data.module';
 import { ExpertCredentialsModule } from './expert-credentials/expert-credentials.module';
 import { ExpertModule } from './expert/expert.module';
+import { ExpertPreferencesModule } from './expert-preferences/expert-preferences.module';
 
 @Module({
 	imports: [
@@ -34,6 +35,7 @@ import { ExpertModule } from './expert/expert.module';
 		ReferenceDataModule,
 		ExpertCredentialsModule,
 		ExpertModule,
+		ExpertPreferencesModule,
 	],
 	controllers: [AppController],
 	providers: [

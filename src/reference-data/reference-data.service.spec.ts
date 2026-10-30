@@ -7,6 +7,7 @@ import {
 	storedQuestions,
 } from '../../test/reference-data-mocks';
 import type { StoredQuestion } from './reference-data.types';
+import type { Prisma } from '../prisma/generated/client';
 
 describe('ReferenceDataService', () => {
 	let module: TestingModule;
@@ -111,6 +112,25 @@ describe('ReferenceDataService', () => {
 			new ServiceUnavailableException('Reference catalog unavailable'),
 		);
 	});
+	it.each(['DASS21', 'DASS42'] as const)(
+		'should use the caller transaction when reading %s inside another feature',
+		async (instrument) => {
+			const transaction = createReferencePrismaMock();
+			const result = await service.getQuestionnaire(
+				instrument,
+				transaction as unknown as Prisma.TransactionClient,
+			);
+			expect(result.questions).toHaveLength(
+				instrument === 'DASS21' ? 21 : 42,
+			);
+			expect(
+				transaction[instrument === 'DASS21' ? 'dASS21' : 'dASS42']
+					.findMany,
+			).toHaveBeenCalled();
+			expect(prisma.dASS21.findMany).not.toHaveBeenCalled();
+			expect(prisma.dASS42.findMany).not.toHaveBeenCalled();
+		},
+	);
 	it('should project fields when a mock row contains unrelated private data', async () => {
 		const rows: (StoredQuestion & { privateData: string })[] =
 			storedQuestions('DASS21').map((row) => ({
