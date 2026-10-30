@@ -1,0 +1,11 @@
+model Rule {
+    id           Int        @id @default(autoincrement())
+
+    premiseId    Int
+    premise      Premise    @relation(fields: [premiseId], references: [id])
+
+    conclusionId Int
+    conclusion   Conclusion @relation(fields: [conclusionId], references: [id])
+    
+    experts      Expert[]
+}

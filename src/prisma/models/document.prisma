@@ -1,0 +1,14 @@
+enum DOCUMENT_TYPE {
+    REGISTRATION_LICENCE
+    PRACTICE_LICENSE
+}
+
+model Document {
+    id       Int           @id @default(autoincrement())
+    type     DOCUMENT_TYPE
+    path     String
+    
+    expertId String
+    expert   Expert        @relation(fields: [expertId], references: [id])
+}
+
