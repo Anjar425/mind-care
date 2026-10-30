@@ -18,6 +18,9 @@ const valid = () => ({
 	RATE_LIMIT_SEND_VERIFICATION: '3',
 	RATE_LIMIT_REFRESH: '30',
 	HEALTH_CHECK_TIMEOUT_MS: '1000',
+	CREDENTIAL_STORAGE_ROOT: '.private/credentials',
+	CREDENTIAL_ENCRYPTION_KEY: 'a'.repeat(64),
+	CREDENTIAL_LOOKUP_KEY: 'b'.repeat(64),
 });
 
 describe('validateEnvironment', () => {
@@ -67,6 +70,15 @@ describe('validateEnvironment', () => {
 		['RATE_LIMIT_REFRESH', '0'],
 		['HEALTH_CHECK_TIMEOUT_MS', '0'],
 		['HEALTH_CHECK_TIMEOUT_MS', '2147483648'],
+		['CREDENTIAL_STORAGE_ROOT', '../public'],
+		['CREDENTIAL_STORAGE_ROOT', '.private/../../public'],
+		['CREDENTIAL_ENCRYPTION_KEY', 'short'],
+		['CREDENTIAL_LOOKUP_KEY', 'invalid'],
+		['CREDENTIAL_LOOKUP_KEY', 'a'.repeat(64)],
+		['CREDENTIAL_UPLOAD_MAX_BYTES', '5242881'],
+		['CREDENTIAL_UPLOAD_RATE_LIMIT', '0'],
+		['CREDENTIAL_REMINDER_LEAD_DAYS', '31'],
+		['CREDENTIAL_REMINDER_HOUR', '24'],
 	])(
 		'should reject %s when its configured format is invalid (%s)',
 		(key, value) => {

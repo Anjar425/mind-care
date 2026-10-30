@@ -13,6 +13,9 @@ import { MailService } from './mail.service';
 					host: config.get('MAIL_HOST', { infer: true }),
 					port: config.get('MAIL_PORT', { infer: true }),
 					secure: config.get('MAIL_SECURE', { infer: true }),
+					connectionTimeout: 10000,
+					greetingTimeout: 10000,
+					socketTimeout: 30000,
 					auth: {
 						user: config.get('MAIL_USER', { infer: true }),
 						pass: config.get('MAIL_PASS', { infer: true }),

@@ -15,8 +15,13 @@ type ActionLimit =
 	| 'RATE_LIMIT_REGISTER'
 	| 'RATE_LIMIT_FORGOT_PASSWORD'
 	| 'RATE_LIMIT_SEND_VERIFICATION'
-	| 'RATE_LIMIT_REFRESH';
+	| 'RATE_LIMIT_REFRESH'
+	| 'CREDENTIAL_UPLOAD_RATE_LIMIT';
 const ACTIONS: Record<string, { name: string; setting: ActionLimit }> = {
+	'/expert/me/credentials/:type': {
+		name: 'credential-upload',
+		setting: 'CREDENTIAL_UPLOAD_RATE_LIMIT',
+	},
 	'/auth/login': { name: 'login', setting: 'RATE_LIMIT_LOGIN' },
 	'/auth/expert/login': { name: 'login', setting: 'RATE_LIMIT_LOGIN' },
 	'/auth/admin/login': { name: 'login', setting: 'RATE_LIMIT_LOGIN' },

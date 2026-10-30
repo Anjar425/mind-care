@@ -1,4 +1,4 @@
-import { ExecutionContext } from '@nestjs/common';
+import { ExecutionContext, StreamableFile } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
 import { firstValueFrom, of, throwError } from 'rxjs';
@@ -68,5 +68,13 @@ describe('ResponseInterceptor', () => {
 				}),
 			),
 		).rejects.toBe(error);
+	});
+	it('should preserve StreamableFile attachments instead of JSON-wrapping private bytes', async () => {
+		const file = new StreamableFile(Buffer.from('synthetic-private'));
+		expect(
+			await firstValueFrom(
+				interceptor.intercept(context, { handle: () => of(file) }),
+			),
+		).toBe(file);
 	});
 });

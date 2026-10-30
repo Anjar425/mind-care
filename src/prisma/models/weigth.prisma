@@ -1,10 +1,10 @@
 model Weight {
-    id                Int    @id @default(autoincrement())
-    educationWeight   Int
-    publicationWeight Int
-    patientWeight     Int
-    experienceWeight  Int
-    
-    expertId          String @unique
-    expert            Expert @relation(fields: [expertId], references: [id])
+    id                  Int  @id @default(autoincrement())
+    educationWeight     Int
+    publicationWeight   Int
+    patientWeight       Int
+    clinicalHoursWeight Int?
+
+    expertId String @unique
+    expert   Expert @relation(fields: [expertId], references: [id])
 }

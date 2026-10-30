@@ -3,6 +3,7 @@ import {
 	ExecutionContext,
 	Injectable,
 	NestInterceptor,
+	StreamableFile,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { map, Observable } from 'rxjs';
@@ -17,14 +18,14 @@ export interface ResponseEnvelope<T> {
 @Injectable()
 export class ResponseInterceptor<T = unknown> implements NestInterceptor<
 	T,
-	ResponseEnvelope<T>
+	ResponseEnvelope<T> | StreamableFile
 > {
 	constructor(private readonly reflector: Reflector) {}
 
 	intercept(
 		context: ExecutionContext,
 		next: CallHandler<T>,
-	): Observable<ResponseEnvelope<T>> {
+	): Observable<ResponseEnvelope<T> | StreamableFile> {
 		const response = context.switchToHttp().getResponse<Response>();
 
 		const metadata = this.reflector.get<unknown>(
@@ -34,11 +35,17 @@ export class ResponseInterceptor<T = unknown> implements NestInterceptor<
 		const message = typeof metadata === 'string' ? metadata : 'Success';
 
 		return next.handle().pipe(
-			map((data) => ({
-				statusCode: response.statusCode,
-				message: message,
-				...(data !== null && data !== undefined ? { data } : {}),
-			})),
+			map((data) =>
+				data instanceof StreamableFile
+					? data
+					: {
+							statusCode: response.statusCode,
+							message: message,
+							...(data !== null && data !== undefined
+								? { data }
+								: {}),
+						},
+			),
 		);
 	}
 }

@@ -62,4 +62,19 @@ describe('MailService configuration', () => {
 			),
 		).rejects.toThrow('synthetic-provider-failure');
 	});
+	it('should send an owner credential reminder without documents, numbers or screening results', async () => {
+		await service.sendCredentialExpiryReminder(
+			'synthetic@example.test',
+			'STR',
+			'2027-12-12',
+		);
+		expect(sendMail).toHaveBeenCalledWith({
+			to: 'synthetic@example.test',
+			subject: 'STR credential expiry reminder - MindCare',
+			text: expect.stringContaining('2027-12-12') as unknown,
+		});
+		expect((sendMail.mock.calls as unknown[][])[0][0]).not.toHaveProperty(
+			'attachments',
+		);
+	});
 });
