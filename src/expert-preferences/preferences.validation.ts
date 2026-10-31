@@ -6,6 +6,7 @@ import { DASS21_CATALOG } from '../reference-data/catalogs/dass21.catalog';
 import type {
 	PreferenceCatalog,
 	ReplacePreferences,
+	StoredPreferenceVector,
 } from './expert-preferences.types';
 
 export const PREFERENCE_FIELDS = [
@@ -58,6 +59,26 @@ export function preferenceVectorIssues(
 			`${prefix} D/A/S percentages must total exactly 100; values were not adjusted`,
 		);
 	return errors;
+}
+// Catalog failure is infrastructure failure; invalid member rows are domain state.
+export function storedPreferencesValid(
+	catalog: PreferenceCatalog,
+	rows: readonly StoredPreferenceVector[],
+): boolean {
+	const ids = preferenceQuestionIds(catalog);
+	const seen = new Set<string>();
+	if (rows.length > 21) return false;
+	for (const row of rows) {
+		if (
+			preferenceVectorIssues(row, ids, 'Stored preference').length ||
+			seen.has(row.dass21Id) ||
+			typeof row.catalogVersion !== 'string' ||
+			!CATALOG_VERSION_PATTERN.test(row.catalogVersion)
+		)
+			return false;
+		seen.add(row.dass21Id);
+	}
+	return true;
 }
 export function assertPreferencesSubmission(
 	input: unknown,

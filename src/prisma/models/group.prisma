@@ -1,10 +1,114 @@
+enum GroupRole {
+    LEADER
+    MEMBER
+}
+
+enum GroupMembershipStatus {
+    ACTIVE
+    LEFT
+    REMOVED
+}
+
+enum GroupGrantStatus {
+    PENDING
+    ACCEPTED
+    DECLINED
+    REVOKED
+    EXPIRED
+}
+
+enum GroupAction {
+    CREATED
+    METADATA_UPDATED
+    INVITED
+    INVITATION_ACCEPTED
+    INVITATION_DECLINED
+    INVITATION_REVOKED
+    MEMBER_LEFT
+    MEMBER_REMOVED
+    TRANSFER_PROPOSED
+    TRANSFER_ACCEPTED
+    TRANSFER_DECLINED
+    TRANSFER_REVOKED
+    ARCHIVED
+}
+
 model Group {
-    id            Int      @id @default(autoincrement())
-    name          String
-    description   String
-    inviteToken   String   @unique
-    tokenExpireAt DateTime
-    createdAt     DateTime
-    
-    experts       Expert[]
+    id          Int                       @id @default(autoincrement())
+    name        String
+    description String
+    createdAt   DateTime                  @default(now())
+    updatedAt   DateTime                  @default(now())
+    archivedAt  DateTime?
+    memberships GroupMembership[]
+    invitations GroupInvitation[]
+    transfers   GroupLeadershipTransfer[]
+    audits      GroupAudit[]
+}
+
+model GroupMembership {
+    id       String                @id @default(uuid())
+    groupId  Int
+    expertId String
+    role     GroupRole
+    status   GroupMembershipStatus @default(ACTIVE)
+    joinedAt DateTime              @default(now())
+    leftAt   DateTime?
+    group    Group                 @relation(fields: [groupId], references: [id], onDelete: Restrict)
+    expert   Expert                @relation(fields: [expertId], references: [id], onDelete: Restrict)
+
+    @@unique([groupId, expertId])
+    @@index([expertId, status])
+    @@index([groupId, status])
+}
+
+model GroupInvitation {
+    id              String           @id @default(uuid())
+    groupId         Int
+    recipientUserId String
+    inviterUserId   String
+    status          GroupGrantStatus @default(PENDING)
+    createdAt       DateTime         @default(now())
+    expiresAt       DateTime
+    decidedAt       DateTime?
+    group           Group            @relation(fields: [groupId], references: [id], onDelete: Restrict)
+    recipient       User             @relation("GroupInviteRecipient", fields: [recipientUserId], references: [id], onDelete: Restrict)
+    inviter         User             @relation("GroupInviteActor", fields: [inviterUserId], references: [id], onDelete: Restrict)
+
+    @@index([recipientUserId, createdAt])
+    @@index([groupId, status])
+}
+
+model GroupLeadershipTransfer {
+    id                 String           @id @default(uuid())
+    groupId            Int
+    proposedByExpertId String
+    targetExpertId     String
+    expectedStateHash  String
+    status             GroupGrantStatus @default(PENDING)
+    createdAt          DateTime         @default(now())
+    expiresAt          DateTime
+    decidedAt          DateTime?
+    group              Group            @relation(fields: [groupId], references: [id], onDelete: Restrict)
+    proposedBy         Expert           @relation("GroupTransferSource", fields: [proposedByExpertId], references: [id], onDelete: Restrict)
+    target             Expert           @relation("GroupTransferTarget", fields: [targetExpertId], references: [id], onDelete: Restrict)
+
+    @@index([targetExpertId, createdAt])
+    @@index([groupId, status])
+}
+
+model GroupAudit {
+    id               String      @id @default(uuid())
+    groupId          Int
+    actorUserId      String
+    action           GroupAction
+    affectedExpertId String?
+    invitationId     String?
+    transferId       String?
+    reason           String?
+    createdAt        DateTime    @default(now())
+    group            Group       @relation(fields: [groupId], references: [id], onDelete: Restrict)
+    actor            User        @relation("GroupAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+    @@index([groupId, createdAt])
 }

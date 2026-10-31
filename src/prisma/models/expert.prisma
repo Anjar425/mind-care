@@ -11,8 +11,8 @@ enum Education {
 }
 
 model Expert {
-    id                 String               @id @default(uuid())
-    gender             Gender               @default(NOT_SPECIFIED)
+    id                 String     @id @default(uuid())
+    gender             Gender     @default(NOT_SPECIFIED)
     address            String?
     phone              String?
     photo              String?
@@ -22,20 +22,22 @@ model Expert {
     publicationsNumber Int?
     patientsNumber     Int?
     clinicalHours      Int?
-    profileVersion     Int                  @default(0)
+    profileVersion     Int        @default(0)
     profileValidatedAt DateTime?
 
     userId String @unique
     user   User   @relation(fields: [userId], references: [id])
 
-    weight                Weight?
-    preferences           Preferences[]
-    groups                Group[]
-    rules                 Rule[]
-    documents             Document[]
-    credentialVersion     Int                  @default(0)
-    credentialSuspendedAt DateTime?
-    credentialIdentities  CredentialIdentity[]
-    credentialRevisions   CredentialRevision[]
-    credentialAudits      CredentialAudit[]
+    weight                 Weight?
+    preferences            Preferences[]
+    groupMemberships       GroupMembership[]
+    proposedGroupTransfers GroupLeadershipTransfer[] @relation("GroupTransferSource")
+    receivedGroupTransfers GroupLeadershipTransfer[] @relation("GroupTransferTarget")
+    rules                  Rule[]
+    documents              Document[]
+    credentialVersion      Int                       @default(0)
+    credentialSuspendedAt  DateTime?
+    credentialIdentities   CredentialIdentity[]
+    credentialRevisions    CredentialRevision[]
+    credentialAudits       CredentialAudit[]
 }

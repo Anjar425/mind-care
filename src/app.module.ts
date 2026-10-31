@@ -16,6 +16,7 @@ import { ReferenceDataModule } from './reference-data/reference-data.module';
 import { ExpertCredentialsModule } from './expert-credentials/expert-credentials.module';
 import { ExpertModule } from './expert/expert.module';
 import { ExpertPreferencesModule } from './expert-preferences/expert-preferences.module';
+import { GroupsModule } from './groups/groups.module';
 
 @Module({
 	imports: [
@@ -36,6 +37,7 @@ import { ExpertPreferencesModule } from './expert-preferences/expert-preferences
 		ExpertCredentialsModule,
 		ExpertModule,
 		ExpertPreferencesModule,
+		GroupsModule,
 	],
 	controllers: [AppController],
 	providers: [
