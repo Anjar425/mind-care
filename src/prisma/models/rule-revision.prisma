@@ -1,0 +1,22 @@
+model RuleRevision {
+    id                  String   @id @default(uuid())
+    ruleId              Int
+    version             Int
+    catalogVersion      String
+    grammarVersion      String
+    canonicalVersion    String
+    originalPayload     Json
+    canonicalAntecedent  Json
+    antecedentHash      String
+    conclusionId        Int
+    createdAt           DateTime @default(now())
+    rule                Rule     @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+    conclusion          Conclusion @relation(fields: [conclusionId], references: [id], onDelete: Restrict)
+    premises            Premise[]
+    audits              RuleAudit[]
+    conflictMembers RuleConflictMember[]
+    resolutionActions RuleResolutionAction[]
+
+    @@unique([ruleId, version])
+    @@index([antecedentHash])
+}

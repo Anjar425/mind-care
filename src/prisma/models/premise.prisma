@@ -19,10 +19,14 @@ model Premise {
     id         Int        @id @default(autoincrement())
     prefix     PREFIX
     level      LEVEL
-    conjuction CONJUCTION
+    joinToNext CONJUCTION
 
     dass42Id   String
     dass42     DASS42     @relation(fields: [dass42Id], references: [id])
     
-    rules Rule[]
+    ruleRevisionId String
+    position       Int
+    ruleRevision   RuleRevision @relation(fields: [ruleRevisionId], references: [id], onDelete: Restrict)
+
+    @@unique([ruleRevisionId, position])
 }

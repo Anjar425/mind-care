@@ -1,11 +1,17 @@
 model Rule {
-    id           Int        @id @default(autoincrement())
+    id             Int       @id @default(autoincrement())
+    groupId        Int
+    authorExpertId String
+    createdAt      DateTime  @default(now())
+    updatedAt      DateTime  @default(now())
+    archivedAt     DateTime?
+    group          Group     @relation(fields: [groupId], references: [id], onDelete: Restrict)
+    author         Expert    @relation(fields: [authorExpertId], references: [id], onDelete: Restrict)
+    revisions      RuleRevision[]
+    audits         RuleAudit[]
+    conflictMembers RuleConflictMember[]
+    resolutionActions RuleResolutionAction[]
 
-    premiseId    Int
-    premise      Premise    @relation(fields: [premiseId], references: [id])
-
-    conclusionId Int
-    conclusion   Conclusion @relation(fields: [conclusionId], references: [id])
-    
-    experts      Expert[]
+    @@index([groupId, updatedAt, id])
+    @@index([authorExpertId, updatedAt, id])
 }

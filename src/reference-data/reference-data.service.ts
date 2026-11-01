@@ -10,6 +10,7 @@ import {
 import { validateCatalog, validateConclusions } from './catalog-validator';
 import { QuestionnaireResponseDto } from './dto/questionnaire-response.dto';
 import type { Instrument } from './reference-data.types';
+import type { Prisma } from '../prisma/generated/client';
 
 const QUESTION_SELECT = {
 	id: true,
@@ -25,6 +26,7 @@ export class ReferenceDataService {
 
 	async getQuestionnaire(
 		instrument: Instrument,
+		db: Prisma.TransactionClient = this.prisma,
 	): Promise<QuestionnaireResponseDto> {
 		const catalog =
 			instrument === 'DASS21' ? DASS21_CATALOG : DASS42_CATALOG;
@@ -32,10 +34,10 @@ export class ReferenceDataService {
 			validateCatalog(catalog, instrument);
 			const rows =
 				instrument === 'DASS21'
-					? await this.prisma.dASS21.findMany({
+					? await db.dASS21.findMany({
 							select: QUESTION_SELECT,
 						})
-					: await this.prisma.dASS42.findMany({
+					: await db.dASS42.findMany({
 							select: QUESTION_SELECT,
 						});
 			if (rows.length !== catalog.questions.length)

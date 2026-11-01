@@ -1,12 +1,15 @@
 model Preferences {
     id                Int  @id @default(autoincrement())
-    percentAnxiety    Int?
-    percentDepression Int?
-    percentStress     Int?
+    percentAnxiety    Int
+    percentDepression Int
+    percentStress     Int
+    catalogVersion    String
 
-    dass21Id String @unique
+    dass21Id String
     dass21   DASS21 @relation(fields: [dass21Id], references: [id])
 
     expertId String
     expert Expert @relation(fields: [expertId], references: [id])
+
+    @@unique([expertId, dass21Id])
 }

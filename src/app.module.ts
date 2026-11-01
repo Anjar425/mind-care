@@ -15,6 +15,12 @@ import type { RuntimeEnvironment } from './common/config/environment.config';
 import { ReferenceDataModule } from './reference-data/reference-data.module';
 import { ExpertCredentialsModule } from './expert-credentials/expert-credentials.module';
 import { ExpertModule } from './expert/expert.module';
+import { ExpertPreferencesModule } from './expert-preferences/expert-preferences.module';
+import { GroupsModule } from './groups/groups.module';
+import { RulesModule } from './rules/rules.module';
+import { RuleConflictsModule } from './rule-conflicts/rule-conflicts.module';
+import { QdssModule } from './qdss/qdss.module';
+import { Dass42InferenceModule } from './dass42-inference/dass42-inference.module';
 
 @Module({
 	imports: [
@@ -34,6 +40,12 @@ import { ExpertModule } from './expert/expert.module';
 		ReferenceDataModule,
 		ExpertCredentialsModule,
 		ExpertModule,
+		ExpertPreferencesModule,
+		GroupsModule,
+		RulesModule,
+		RuleConflictsModule,
+		QdssModule,
+		Dass42InferenceModule,
 	],
 	controllers: [AppController],
 	providers: [

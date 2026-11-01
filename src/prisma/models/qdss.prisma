@@ -1,0 +1,85 @@
+enum QdssRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  STALE
+}
+
+model QdssConfiguration {
+  id          String        @id
+  groupId     Int?          @unique
+  datasetId   String?
+  activeRunId String?       @unique
+  createdAt   DateTime      @default(now())
+  group       Group?        @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  dataset     QdssDataset?  @relation("QdssSelectedDataset", fields: [datasetId], references: [id], onDelete: Restrict)
+  activeRun   QdssRun?      @relation("QdssActiveRun", fields: [activeRunId], references: [id], onDelete: Restrict)
+  datasets    QdssDataset[] @relation("QdssOwnedDatasets")
+  runs        QdssRun[]     @relation("QdssOwnedRuns")
+  audits      QdssAudit[]
+}
+
+model QdssDataset {
+  id              String              @id @default(uuid())
+  configurationId String
+  version         Int
+  catalogVersion  String
+  samples         Json
+  sampleCount     Int
+  contentHash     String
+  createdByUserId String
+  createdAt       DateTime            @default(now())
+  configuration   QdssConfiguration   @relation("QdssOwnedDatasets", fields: [configurationId], references: [id], onDelete: Restrict)
+  selectedBy      QdssConfiguration[] @relation("QdssSelectedDataset")
+  author          User                @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  runs            QdssRun[]
+
+  @@unique([configurationId, version])
+}
+
+model QdssReference {
+  id             String    @id
+  catalogVersion String
+  sourceHash     String
+  content        Json
+  createdAt      DateTime  @default(now())
+  runs           QdssRun[]
+}
+
+model QdssRun {
+  id                String             @id @default(uuid())
+  configurationId   String
+  datasetId         String
+  referenceId       String?
+  requestedByUserId String
+  inputHash         String
+  algorithmVersion  String
+  snapshot          Json
+  status            QdssRunStatus      @default(RUNNING)
+  weights           Json?
+  consensus         Json?
+  outputHash        String?
+  failureCode       String?
+  createdAt         DateTime           @default(now())
+  completedAt       DateTime?
+  configuration     QdssConfiguration  @relation("QdssOwnedRuns", fields: [configurationId], references: [id], onDelete: Restrict)
+  activeFor         QdssConfiguration? @relation("QdssActiveRun")
+  dataset           QdssDataset        @relation(fields: [datasetId], references: [id], onDelete: Restrict)
+  reference         QdssReference?     @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+  requester         User               @relation(fields: [requestedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([configurationId, createdAt])
+}
+
+model QdssAudit {
+  id              String            @id @default(uuid())
+  configurationId String
+  actorUserId     String
+  action          String
+  subjectId       String?
+  createdAt       DateTime          @default(now())
+  configuration   QdssConfiguration @relation(fields: [configurationId], references: [id], onDelete: Restrict)
+  actor           User              @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([configurationId, createdAt])
+}
