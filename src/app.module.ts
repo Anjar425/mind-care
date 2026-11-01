@@ -19,6 +19,7 @@ import { ExpertPreferencesModule } from './expert-preferences/expert-preferences
 import { GroupsModule } from './groups/groups.module';
 import { RulesModule } from './rules/rules.module';
 import { RuleConflictsModule } from './rule-conflicts/rule-conflicts.module';
+import { QdssModule } from './qdss/qdss.module';
 
 @Module({
 	imports: [
@@ -42,6 +43,7 @@ import { RuleConflictsModule } from './rule-conflicts/rule-conflicts.module';
 		GroupsModule,
 		RulesModule,
 		RuleConflictsModule,
+		QdssModule,
 	],
 	controllers: [AppController],
 	providers: [

@@ -5,6 +5,9 @@ enum ROLE {
 }
 
 model User {
+    qdssDatasets QdssDataset[]
+    qdssRuns QdssRun[]
+    qdssAudits QdssAudit[]
     id                String    @id @default(uuid())
     name              String
     email             String    @unique

@@ -34,6 +34,7 @@ enum GroupAction {
 }
 
 model Group {
+    qdssConfiguration QdssConfiguration?
     id          Int                       @id @default(autoincrement())
     name        String
     description String
