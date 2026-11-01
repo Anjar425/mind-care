@@ -34,10 +34,22 @@ export class RuleConflictCoreService {
 		tx: Prisma.TransactionClient,
 		groupId: number,
 		expertIds?: readonly string[],
+		maxRules?: number,
 	) {
+		if (
+			maxRules !== undefined &&
+			(!Number.isSafeInteger(maxRules) || maxRules < 1)
+		)
+			throw new ServiceUnavailableException(
+				'Invalid inference source capacity',
+			);
 		const inputs: ConflictInput[] = [];
 		let skip = 0;
 		while (true) {
+			const take =
+				maxRules === undefined
+					? 100
+					: Math.min(100, maxRules - inputs.length + 1);
 			const rows = await tx.rule.findMany({
 				where: {
 					groupId,
@@ -48,9 +60,16 @@ export class RuleConflictCoreService {
 				},
 				orderBy: { id: 'asc' },
 				skip,
-				take: 100,
+				take,
 				include: RULE_LATEST_INCLUDE,
 			});
+			if (
+				maxRules !== undefined &&
+				inputs.length + rows.length > maxRules
+			)
+				throw new ConflictException(
+					'DASS42 inference rule capacity exceeded; no partial ruleset was used',
+				);
 			for (const row of rows) {
 				const revision = row.revisions[0];
 				if (!revision)
@@ -70,7 +89,7 @@ export class RuleConflictCoreService {
 				});
 			}
 			skip += rows.length;
-			if (rows.length < 100) break;
+			if (rows.length < take) break;
 		}
 		inputs.sort((a, b) => a.id - b.id);
 		const manifest = inputs.map((r) => [

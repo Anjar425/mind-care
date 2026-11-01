@@ -16,6 +16,32 @@ import {
 } from './dto/conflict-requests.dto';
 
 describe('All-author conflict resolution with synthetic transactional persistence', () => {
+	it('should apply an optional inference limit without changing uncapped governance or author eligibility', async () => {
+		const limited = await conflictFixture();
+		const tx = limited.m.tx as unknown as Parameters<
+			typeof limited.core.snapshot
+		>[0];
+		await expect(
+			limited.assessment.readCurrentConflictFreeSnapshot(
+				limited.groupId,
+				tx,
+				1,
+			),
+		).rejects.toThrow('capacity exceeded');
+		limited.m.groups.state.experts[1].profileValidatedAt = null;
+		expect(
+			(
+				await limited.assessment.readCurrentConflictFreeSnapshot(
+					limited.groupId,
+					tx,
+					1,
+				)
+			).rules.map((r) => r.id),
+		).toEqual([limited.a.id]);
+		expect(
+			(await limited.core.snapshot(tx, limited.groupId)).inputs,
+		).toHaveLength(2);
+	});
 	let f: Awaited<ReturnType<typeof conflictFixture>>;
 	beforeEach(async () => {
 		f = await conflictFixture();

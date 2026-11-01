@@ -23,6 +23,7 @@ export class Dass42RuleAssessmentService {
 	async readCurrentConflictFreeSnapshot(
 		groupId: number,
 		db?: Prisma.TransactionClient,
+		maxRules?: number,
 	) {
 		const work = async (tx: Prisma.TransactionClient) => {
 			const eligibility = await this.groups.requireCurrent(groupId, tx);
@@ -30,6 +31,7 @@ export class Dass42RuleAssessmentService {
 				tx,
 				groupId,
 				eligibility.validExpertIds,
+				maxRules,
 			);
 			if (!snapshot.inputs.length)
 				throw new ConflictException(
