@@ -5,6 +5,8 @@ import {
 	ServiceUnavailableException,
 } from '@nestjs/common';
 import { RulesService } from './rules.service';
+import { RuleRevisionStore } from './rule-revision-store.service';
+import { RuleConflictCoreService } from '../rule-conflicts/rule-conflict-core.service';
 import { RuleReferenceService } from './rule-reference.service';
 import { ReferenceDataService } from '../reference-data/reference-data.service';
 import { CredentialEligibilityService } from '../expert-credentials/credential-eligibility.service';
@@ -24,6 +26,8 @@ describe('DASS42 authored revisions (synthetic persistence)', () => {
 			m.prisma,
 			new CredentialEligibilityService(m.prisma),
 			new RuleReferenceService(new ReferenceDataService(m.prisma)),
+			new RuleRevisionStore(),
+			new RuleConflictCoreService(new RuleRevisionStore()),
 		);
 	});
 	const create = () => service.create(user, groupId, validRuleContent());
@@ -338,6 +342,7 @@ describe('DASS42 authored revisions (synthetic persistence)', () => {
 			row.updatedAt = new Date(
 				row.id === valid.id ? '2020-01-01' : '2026-01-01',
 			);
+		m.tx.rule.findMany.mockClear();
 		const result = await service.list(user, groupId, {
 			...new RulesQuery(),
 			category: 'DEPRESSION',

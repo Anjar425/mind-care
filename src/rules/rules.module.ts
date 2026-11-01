@@ -6,6 +6,8 @@ import { ReferenceDataModule } from '../reference-data/reference-data.module';
 import { RulesController } from './rules.controller';
 import { RulesService } from './rules.service';
 import { RuleReferenceService } from './rule-reference.service';
+import { RuleStorageModule } from './rule-storage.module';
+import { RuleConflictCoreModule } from '../rule-conflicts/rule-conflict-core.module';
 
 @Module({
 	imports: [
@@ -13,6 +15,8 @@ import { RuleReferenceService } from './rule-reference.service';
 		PrismaModule,
 		ExpertCredentialsModule,
 		ReferenceDataModule,
+		RuleStorageModule,
+		RuleConflictCoreModule,
 	],
 	controllers: [RulesController],
 	providers: [RulesService, RuleReferenceService],

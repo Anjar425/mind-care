@@ -14,6 +14,8 @@ model RuleRevision {
     conclusion          Conclusion @relation(fields: [conclusionId], references: [id], onDelete: Restrict)
     premises            Premise[]
     audits              RuleAudit[]
+    conflictMembers RuleConflictMember[]
+    resolutionActions RuleResolutionAction[]
 
     @@unique([ruleId, version])
     @@index([antecedentHash])

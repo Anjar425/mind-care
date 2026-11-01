@@ -9,6 +9,8 @@ model Rule {
     author         Expert    @relation(fields: [authorExpertId], references: [id], onDelete: Restrict)
     revisions      RuleRevision[]
     audits         RuleAudit[]
+    conflictMembers RuleConflictMember[]
+    resolutionActions RuleResolutionAction[]
 
     @@index([groupId, updatedAt, id])
     @@index([authorExpertId, updatedAt, id])

@@ -11,6 +11,18 @@ import type { Server } from 'node:http';
 import request from 'supertest';
 import { RulesController } from '../src/rules/rules.controller';
 import { RulesService } from '../src/rules/rules.service';
+import { RuleRevisionStore } from '../src/rules/rule-revision-store.service';
+import { RuleConflictCoreService } from '../src/rule-conflicts/rule-conflict-core.service';
+import { RuleResolutionService } from '../src/rule-conflicts/rule-resolution.service';
+import { RuleConflictsService } from '../src/rule-conflicts/rule-conflicts.service';
+import { Dass42RuleAssessmentService } from '../src/rule-conflicts/dass42-rule-assessment.service';
+import {
+	RuleConflictsController,
+	ConflictNotificationsController,
+	AdminRuleConflictsController,
+} from '../src/rule-conflicts/rule-conflicts.controller';
+import { GroupEligibilityService } from '../src/groups/group-eligibility.service';
+import { ExpertProfileCompletenessService } from '../src/expert/expert-profile-completeness.service';
 import { RuleReferenceService } from '../src/rules/rule-reference.service';
 import { ReferenceDataService } from '../src/reference-data/reference-data.service';
 import { CredentialEligibilityService } from '../src/expert-credentials/credential-eligibility.service';
@@ -23,16 +35,32 @@ import { runtimeConfigProvider, syntheticConfig } from './runtime-config.mock';
 import { createRulesMocks } from './rules-mocks';
 import { groupUserId } from './groups-mocks';
 
-export async function createRulesHttp() {
+export async function createRulesHttp(includeConflicts = false) {
 	const mocks = createRulesMocks();
 	const errors = jest
 		.spyOn(Logger.prototype, 'error')
 		.mockImplementation(() => undefined);
 	const module = await Test.createTestingModule({
 		imports: [ThrottlerModule.forRoot([{ ttl: 60000, limit: 120 }])],
-		controllers: [RulesController],
+		controllers: [
+			RulesController,
+			...(includeConflicts
+				? [
+						RuleConflictsController,
+						ConflictNotificationsController,
+						AdminRuleConflictsController,
+					]
+				: []),
+		],
 		providers: [
 			RulesService,
+			RuleRevisionStore,
+			RuleConflictCoreService,
+			RuleResolutionService,
+			RuleConflictsService,
+			Dass42RuleAssessmentService,
+			GroupEligibilityService,
+			ExpertProfileCompletenessService,
 			RuleReferenceService,
 			ReferenceDataService,
 			CredentialEligibilityService,

@@ -34,6 +34,9 @@ model Expert {
     proposedGroupTransfers GroupLeadershipTransfer[] @relation("GroupTransferSource")
     receivedGroupTransfers GroupLeadershipTransfer[] @relation("GroupTransferTarget")
     rules                  Rule[]
+    conflictMembers RuleConflictMember[]
+    resolutionActions RuleResolutionAction[]
+    resolutionParticipants RuleResolutionParticipant[]
     documents              Document[]
     credentialVersion      Int                       @default(0)
     credentialSuspendedAt  DateTime?

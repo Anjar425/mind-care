@@ -45,6 +45,9 @@ model Group {
     transfers   GroupLeadershipTransfer[]
     audits      GroupAudit[]
     rules       Rule[]
+    conflictAssessments RuleConflictAssessment[]
+    conflictCases RuleConflictCase[]
+    conflictAudits RuleConflictAudit[]
 }
 
 model GroupMembership {
@@ -57,6 +60,7 @@ model GroupMembership {
     leftAt   DateTime?
     group    Group                 @relation(fields: [groupId], references: [id], onDelete: Restrict)
     expert   Expert                @relation(fields: [expertId], references: [id], onDelete: Restrict)
+    resolutionParticipants RuleResolutionParticipant[]
 
     @@unique([groupId, expertId])
     @@index([expertId, status])

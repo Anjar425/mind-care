@@ -18,6 +18,7 @@ import { ExpertModule } from './expert/expert.module';
 import { ExpertPreferencesModule } from './expert-preferences/expert-preferences.module';
 import { GroupsModule } from './groups/groups.module';
 import { RulesModule } from './rules/rules.module';
+import { RuleConflictsModule } from './rule-conflicts/rule-conflicts.module';
 
 @Module({
 	imports: [
@@ -40,6 +41,7 @@ import { RulesModule } from './rules/rules.module';
 		ExpertPreferencesModule,
 		GroupsModule,
 		RulesModule,
+		RuleConflictsModule,
 	],
 	controllers: [AppController],
 	providers: [

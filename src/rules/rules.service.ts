@@ -8,15 +8,19 @@ import {
 	ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+	RuleRevisionStore,
+	RULE_LATEST_INCLUDE,
+	RULE_REVISION_SELECT,
+	type StoredRule,
+} from './rule-revision-store.service';
+export type { StoredRuleRevision } from './rule-revision-store.service';
+import { RuleConflictCoreService } from '../rule-conflicts/rule-conflict-core.service';
 import type { Prisma, RuleAction } from '../prisma/generated/client';
 import { CredentialEligibilityService } from '../expert-credentials/credential-eligibility.service';
 import { assertCredentialEligibility } from '../expert-credentials/credential-policy';
 import { lockGroup } from '../groups/group-persistence';
-import {
-	compileRule,
-	GRAMMAR_VERSION,
-	CANONICAL_VERSION,
-} from './rule-grammar';
+import { compileRule } from './rule-grammar';
 import { requireRuleRead, requireRuleWrite } from './rule-policy';
 import { ruleStateHash } from './rule-state.util';
 import { RuleReferenceService } from './rule-reference.service';
@@ -28,45 +32,6 @@ import type {
 	UpdateRuleDto,
 } from './dto/rule-requests.dto';
 
-export const RULE_REVISION_SELECT = {
-	id: true,
-	ruleId: true,
-	version: true,
-	catalogVersion: true,
-	grammarVersion: true,
-	canonicalVersion: true,
-	originalPayload: true,
-	canonicalAntecedent: true,
-	antecedentHash: true,
-	conclusionId: true,
-	createdAt: true,
-	conclusion: { select: { category: true, severty: true } },
-	premises: {
-		orderBy: { position: 'asc' },
-		select: {
-			position: true,
-			dass42Id: true,
-			prefix: true,
-			level: true,
-			joinToNext: true,
-		},
-	},
-} as const satisfies Prisma.RuleRevisionSelect;
-export const RULE_LATEST_INCLUDE = {
-	author: { select: { user: { select: { name: true } } } },
-	revisions: {
-		orderBy: { version: 'desc' },
-		take: 1,
-		select: RULE_REVISION_SELECT,
-	},
-} as const satisfies Prisma.RuleInclude;
-type StoredRule = Prisma.RuleGetPayload<{
-	include: typeof RULE_LATEST_INCLUDE;
-}>;
-export type StoredRuleRevision = Prisma.RuleRevisionGetPayload<{
-	select: typeof RULE_REVISION_SELECT;
-}>;
-
 // Authored revisions only. No conflict approval or inference-ready export.
 @Injectable()
 export class RulesService {
@@ -74,6 +39,8 @@ export class RulesService {
 		private readonly prisma: PrismaService,
 		private readonly credentials: CredentialEligibilityService,
 		private readonly references: RuleReferenceService,
+		private readonly store: RuleRevisionStore,
+		private readonly conflicts: RuleConflictCoreService,
 	) {}
 	private async transaction<T>(
 		work: (tx: Prisma.TransactionClient) => Promise<T>,
@@ -151,61 +118,13 @@ export class RulesService {
 		}
 		return rule;
 	}
-	private revision(row: StoredRuleRevision, ruleId: number) {
-		try {
-			const compiled = compileRule(row.originalPayload);
-			if (
-				row.ruleId !== ruleId ||
-				!Number.isSafeInteger(row.version) ||
-				row.version < 1 ||
-				row.grammarVersion !== GRAMMAR_VERSION ||
-				row.canonicalVersion !== CANONICAL_VERSION ||
-				row.catalogVersion !== compiled.original.catalogVersion ||
-				row.antecedentHash !== compiled.antecedentHash ||
-				JSON.stringify(row.canonicalAntecedent) !==
-					JSON.stringify(compiled.antecedent) ||
-				row.conclusion.category !==
-					compiled.original.conclusion.category ||
-				row.conclusion.severty !==
-					compiled.original.conclusion.severity ||
-				row.premises.length !== compiled.original.premises.length
-			)
-				throw new Error('Invalid stored revision');
-			row.premises.forEach((p, i) => {
-				const { position, ...content } = p;
-				const expected = compiled.original.premises[i];
-				if (
-					position !== i + 1 ||
-					content.dass42Id !== expected.dass42Id ||
-					content.prefix !== expected.prefix ||
-					content.level !== expected.level ||
-					content.joinToNext !== expected.joinToNext
-				)
-					throw new Error('Invalid stored clause');
-			});
-			return {
-				ruleId,
-				revisionId: row.id,
-				version: row.version,
-				catalogVersion: row.catalogVersion,
-				grammarVersion: row.grammarVersion,
-				canonicalVersion: row.canonicalVersion,
-				createdAt: row.createdAt,
-				content: compiled.original,
-			};
-		} catch {
-			throw new ServiceUnavailableException(
-				'Stored rule revision requires review',
-			);
-		}
-	}
 	private current(rule: StoredRule) {
 		const row = rule.revisions[0];
 		if (!row)
 			throw new ServiceUnavailableException(
 				'Stored rule has no authored revision',
 			);
-		const revision = this.revision(row, rule.id);
+		const revision = this.store.decode(row, rule.id);
 		return {
 			id: rule.id,
 			groupId: rule.groupId,
@@ -253,48 +172,6 @@ export class RulesService {
 		const expert = await this.credentials.find(userId, tx);
 		assertCredentialEligibility(expert, new Date());
 	}
-	private async append(
-		tx: Prisma.TransactionClient,
-		ruleId: number,
-		version: number,
-		compiled: ReturnType<typeof compileRule>,
-		conclusionId: number,
-		now: Date,
-	) {
-		const row = await tx.ruleRevision.create({
-			data: {
-				ruleId,
-				version,
-				catalogVersion: compiled.original.catalogVersion,
-				grammarVersion: compiled.grammarVersion,
-				canonicalVersion: compiled.canonicalVersion,
-				originalPayload:
-					compiled.original as unknown as Prisma.InputJsonValue,
-				canonicalAntecedent: compiled.antecedent,
-				antecedentHash: compiled.antecedentHash,
-				conclusionId,
-				createdAt: now,
-				premises: {
-					create: compiled.original.premises.map((p, i) => ({
-						...p,
-						position: i + 1,
-					})),
-				},
-			},
-			select: RULE_REVISION_SELECT,
-		});
-		const readback = this.revision(row, ruleId);
-		if (
-			row.version !== version ||
-			row.conclusionId !== conclusionId ||
-			JSON.stringify(readback.content) !==
-				JSON.stringify(compiled.original)
-		)
-			throw new ServiceUnavailableException(
-				'Saved rule content does not match submission',
-			);
-		return row;
-	}
 	private async audit(
 		tx: Prisma.TransactionClient,
 		ruleId: number,
@@ -335,7 +212,7 @@ export class RulesService {
 					updatedAt: now,
 				},
 			});
-			const revision = await this.append(
+			const revision = await this.store.append(
 				tx,
 				rule.id,
 				1,
@@ -344,6 +221,7 @@ export class RulesService {
 				now,
 			);
 			await this.audit(tx, rule.id, revision.id, userId, 'CREATED', now);
+			await this.conflicts.reconcile(tx, groupId, userId);
 			return this.current(await this.load(tx, groupId, rule.id, true));
 		});
 	}
@@ -373,6 +251,7 @@ export class RulesService {
 			const rule = await this.load(tx, groupId, ruleId);
 			requireRuleWrite(scope, rule.authorExpertId);
 			this.compare(rule, dto.expectedStateHash);
+			await this.conflicts.assertDirectWriteAllowed(tx, groupId, ruleId);
 			const conclusionId = await this.references.resolve(
 				compiled.original,
 				tx,
@@ -387,7 +266,7 @@ export class RulesService {
 			if (current.version >= 2147483647)
 				throw new ConflictException('Rule revision version exhausted');
 			const now = new Date();
-			const revision = await this.append(
+			const revision = await this.store.append(
 				tx,
 				rule.id,
 				current.version + 1,
@@ -404,6 +283,7 @@ export class RulesService {
 				},
 			});
 			await this.audit(tx, rule.id, revision.id, userId, 'REVISED', now);
+			await this.conflicts.reconcile(tx, groupId, userId);
 			return this.current(await this.load(tx, groupId, ruleId, true));
 		});
 	}
@@ -428,6 +308,7 @@ export class RulesService {
 			const rule = await this.load(tx, groupId, ruleId);
 			requireRuleWrite(scope, rule.authorExpertId);
 			this.compare(rule, dto.expectedStateHash);
+			await this.conflicts.assertDirectWriteAllowed(tx, groupId, ruleId);
 			await this.writer(tx, userId);
 			const now = new Date();
 			await tx.rule.update({
@@ -448,6 +329,7 @@ export class RulesService {
 				now,
 				dto.reason,
 			);
+			await this.conflicts.reconcile(tx, groupId, userId);
 			return this.current(await this.load(tx, groupId, ruleId, true));
 		});
 	}
@@ -541,7 +423,7 @@ export class RulesService {
 				select: RULE_REVISION_SELECT,
 			});
 			const items = rows.slice(0, q.limit).map((row) => {
-				const { content, ...summary } = this.revision(row, ruleId);
+				const { content, ...summary } = this.store.decode(row, ruleId);
 				return {
 					...summary,
 					category: content.conclusion.category,
@@ -575,7 +457,7 @@ export class RulesService {
 				select: RULE_REVISION_SELECT,
 			});
 			if (!row) throw new NotFoundException('Rule revision not found');
-			return this.revision(row, ruleId);
+			return this.store.decode(row, ruleId);
 		}, true);
 	}
 }

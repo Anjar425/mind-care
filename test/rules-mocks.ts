@@ -9,6 +9,7 @@ import {
 } from '../src/reference-data/catalogs/reference-metadata';
 import { createGroupsMocks } from './groups-mocks';
 import { storedQuestions } from './reference-data-mocks';
+import { createConflictMemory } from './conflict-memory';
 
 export function validRuleContent(): RuleContent {
 	return {
@@ -38,6 +39,9 @@ export function validRuleContent(): RuleContent {
 }
 export function createRulesMocks() {
 	const groups = createGroupsMocks();
+	const conflicts = createConflictMemory(
+		(id) => groups.state.experts.find((e) => e.id === id)!.userId,
+	);
 	const state: {
 		rules: Rule[];
 		revisions: StoredRuleRevision[];
@@ -59,6 +63,9 @@ export function createRulesMocks() {
 		structuredClone({
 			...rule,
 			author: {
+				userId: groups.state.experts.find(
+					(e) => e.id === rule.authorExpertId,
+				)!.userId,
 				user: {
 					name: groups.state.experts.find(
 						(e) => e.id === rule.authorExpertId,
@@ -72,8 +79,55 @@ export function createRulesMocks() {
 		});
 	const tx = {
 		...groups.tx,
+		...conflicts.tx,
+		user: {
+			...groups.tx.user,
+			findMany: jest.fn(
+				({
+					where,
+				}: {
+					where: { id: { in: string[] }; role: string };
+				}) =>
+					Promise.resolve(
+						groups.state.experts
+							.filter(
+								(e) =>
+									where.id.in.includes(e.userId) &&
+									e.user.role === where.role,
+							)
+							.map((e) => ({ id: e.userId })),
+					),
+			),
+		},
 		groupMembership: {
 			...groups.tx.groupMembership,
+			findMany: jest.fn(
+				({
+					where,
+				}: {
+					where: { groupId: number; status?: string; role?: string };
+				}) =>
+					Promise.resolve(
+						structuredClone(
+							groups.state.memberships
+								.filter(
+									(m) =>
+										m.groupId === where.groupId &&
+										(!where.status ||
+											m.status === where.status) &&
+										(!where.role || m.role === where.role),
+								)
+								.map((m) => ({
+									...m,
+									expert: {
+										userId: groups.state.experts.find(
+											(e) => e.id === m.expertId,
+										)!.userId,
+									},
+								})),
+						),
+					),
+			),
 			findUnique: jest.fn(
 				({
 					where,
@@ -99,6 +153,24 @@ export function createRulesMocks() {
 			findMany: jest.fn(() => Promise.resolve(storedQuestions('DASS42'))),
 		},
 		conclusion: {
+			findMany: jest.fn(
+				({
+					where,
+				}: {
+					where: { OR: { category: string; severty: string }[] };
+				}) =>
+					Promise.resolve(
+						structuredClone(
+							state.conclusions.filter((c) =>
+								where.OR.some(
+									(p) =>
+										p.category === c.category &&
+										p.severty === c.severty,
+								),
+							),
+						),
+					),
+			),
 			findUnique: jest.fn(
 				({
 					where,
@@ -145,14 +217,16 @@ export function createRulesMocks() {
 					where,
 					skip = 0,
 					take,
+					orderBy,
 				}: {
 					where: {
 						groupId?: number;
-						authorExpertId?: string;
+						authorExpertId?: string | { in: string[] };
 						archivedAt?: null | { not: null };
 					};
 					skip?: number;
 					take: number;
+					orderBy?: { id: 'asc' } | unknown[];
 				}) =>
 					Promise.resolve(
 						state.rules
@@ -161,17 +235,24 @@ export function createRulesMocks() {
 									(where.groupId === undefined ||
 										r.groupId === where.groupId) &&
 									(!where.authorExpertId ||
-										r.authorExpertId ===
-											where.authorExpertId) &&
+										(typeof where.authorExpertId ===
+										'string'
+											? r.authorExpertId ===
+												where.authorExpertId
+											: where.authorExpertId.in.includes(
+													r.authorExpertId,
+												))) &&
 									(where.archivedAt === undefined ||
 										(where.archivedAt === null
 											? r.archivedAt === null
 											: r.archivedAt !== null)),
 							)
-							.sort(
-								(a, b) =>
-									b.updatedAt.getTime() -
-										a.updatedAt.getTime() || a.id - b.id,
+							.sort((a, b) =>
+								orderBy && !Array.isArray(orderBy)
+									? a.id - b.id
+									: b.updatedAt.getTime() -
+											a.updatedAt.getTime() ||
+										a.id - b.id,
 							)
 							.slice(skip, skip + take)
 							.map(snapshot),
@@ -265,15 +346,19 @@ export function createRulesMocks() {
 					where,
 				}: {
 					where: {
-						ruleId_version: { ruleId: number; version: number };
+						id?: string;
+						ruleId_version?: { ruleId: number; version: number };
 					};
 				}) =>
 					Promise.resolve(
 						structuredClone(
-							state.revisions.find(
-								(r) =>
-									r.ruleId === where.ruleId_version.ruleId &&
-									r.version === where.ruleId_version.version,
+							state.revisions.find((r) =>
+								where.id
+									? r.id === where.id
+									: r.ruleId ===
+											where.ruleId_version!.ruleId &&
+										r.version ===
+											where.ruleId_version!.version,
 							) ?? null,
 						),
 					),
@@ -284,14 +369,19 @@ export function createRulesMocks() {
 				({
 					data,
 				}: {
-					data: Omit<RuleAudit, 'id' | 'reason'> & {
+					data: Omit<
+						RuleAudit,
+						'id' | 'reason' | 'resolutionProposalId'
+					> & {
 						reason?: string;
+						resolutionProposalId?: string;
 					};
 				}) => {
 					const row: RuleAudit = {
 						...data,
 						id: randomUUID(),
 						reason: data.reason ?? null,
+						resolutionProposalId: data.resolutionProposalId ?? null,
 					};
 					state.audits.push(row);
 					return Promise.resolve(structuredClone(row));
@@ -305,6 +395,7 @@ export function createRulesMocks() {
 			const run = async () => {
 				const before = structuredClone(state);
 				const beforeGroups = structuredClone(groups.state);
+				const beforeConflicts = structuredClone(conflicts.state);
 				try {
 					return await work(
 						tx as unknown as Prisma.TransactionClient,
@@ -312,6 +403,7 @@ export function createRulesMocks() {
 				} catch (error) {
 					Object.assign(state, before);
 					Object.assign(groups.state, beforeGroups);
+					Object.assign(conflicts.state, beforeConflicts);
 					throw error;
 				}
 			};
@@ -326,6 +418,7 @@ export function createRulesMocks() {
 	} as unknown as PrismaService;
 	return {
 		groups,
+		conflicts,
 		state,
 		tx,
 		transaction,
