@@ -44,6 +44,7 @@ model Group {
     invitations GroupInvitation[]
     transfers   GroupLeadershipTransfer[]
     audits      GroupAudit[]
+    rules       Rule[]
 }
 
 model GroupMembership {

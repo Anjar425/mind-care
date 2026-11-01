@@ -17,6 +17,7 @@ import { ExpertCredentialsModule } from './expert-credentials/expert-credentials
 import { ExpertModule } from './expert/expert.module';
 import { ExpertPreferencesModule } from './expert-preferences/expert-preferences.module';
 import { GroupsModule } from './groups/groups.module';
+import { RulesModule } from './rules/rules.module';
 
 @Module({
 	imports: [
@@ -38,6 +39,7 @@ import { GroupsModule } from './groups/groups.module';
 		ExpertModule,
 		ExpertPreferencesModule,
 		GroupsModule,
+		RulesModule,
 	],
 	controllers: [AppController],
 	providers: [

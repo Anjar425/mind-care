@@ -22,4 +22,5 @@ model User {
     groupInvitations        GroupInvitation[]        @relation("GroupInviteRecipient")
     sentGroupInvitations    GroupInvitation[]        @relation("GroupInviteActor")
     groupActions            GroupAudit[]             @relation("GroupAuditActor")
+    ruleActions             RuleAudit[]
 }
