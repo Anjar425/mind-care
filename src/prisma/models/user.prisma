@@ -5,6 +5,7 @@ enum ROLE {
 }
 
 model User {
+    historyVault HistoryVault?
     qdssDatasets QdssDataset[]
     qdssRuns QdssRun[]
     qdssAudits QdssAudit[]

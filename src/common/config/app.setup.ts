@@ -4,6 +4,7 @@ import { ResponseInterceptor } from '../interceptor/response/response.intercepto
 import { HttpExceptionFilter } from '../filter/http-exception/http-exception.filter';
 import type { RuntimeEnvironment } from './environment.config';
 import { setupSwagger } from './swagger/setup-swagger';
+import { historyPrivacyMiddleware } from '../../history/history-privacy.middleware';
 
 export function setupApplication(
 	app: INestApplication,
@@ -26,6 +27,7 @@ export function setupApplication(
 		allowedHeaders: ['Content-Type', 'Authorization'],
 		credentials: false,
 	});
+	app.use('/me/history', historyPrivacyMiddleware);
 	app.useGlobalInterceptors(app.get(ResponseInterceptor));
 	app.useGlobalFilters(new HttpExceptionFilter());
 	app.useGlobalPipes(
