@@ -1,0 +1,29 @@
+model HistoryVault {
+    id                 String         @id
+    userId             String         @unique
+    envelopeVersion    Int            @default(1)
+    keyEpoch           Int            @default(1)
+    revision           Int            @default(0)
+    storageConsent     Boolean        @default(false)
+    consentUpdatedAt   DateTime?
+    recoveryVersion    Int            @default(1)
+    recoveryNonce      String         @db.VarChar(16)
+    recoveryCiphertext String         @db.VarChar(64)
+    createdAt          DateTime       @default(now())
+    user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+    entries            HistoryEntry[]
+}
+
+model HistoryEntry {
+    id              String       @id
+    vaultId         String
+    keyEpoch        Int          @default(1)
+    envelopeVersion Int          @default(1)
+    nonce           String       @db.VarChar(16)
+    ciphertext      String       @db.Text
+    createdAt       DateTime     @default(now())
+    vault           HistoryVault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+    @@unique([vaultId, keyEpoch, nonce])
+    @@index([vaultId, id])
+}

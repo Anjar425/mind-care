@@ -21,6 +21,8 @@ import { RulesModule } from './rules/rules.module';
 import { RuleConflictsModule } from './rule-conflicts/rule-conflicts.module';
 import { QdssModule } from './qdss/qdss.module';
 import { Dass42InferenceModule } from './dass42-inference/dass42-inference.module';
+import { HistoryModule } from './history/history.module';
+import { ScreeningsModule } from './screenings/screenings.module';
 
 @Module({
 	imports: [
@@ -46,6 +48,8 @@ import { Dass42InferenceModule } from './dass42-inference/dass42-inference.modul
 		RuleConflictsModule,
 		QdssModule,
 		Dass42InferenceModule,
+		HistoryModule,
+		ScreeningsModule,
 	],
 	controllers: [AppController],
 	providers: [

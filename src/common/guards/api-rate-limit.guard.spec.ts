@@ -9,6 +9,23 @@ import {
 } from '../../../test/runtime-config.mock';
 
 describe('ApiRateLimitGuard', () => {
+	it.each([
+		['/screenings/qdss', 10],
+		['/screenings/dass42', 5],
+	] as const)(
+		'should enforce the separate local compute limit for%s',
+		async (path, limit) => {
+			for (let i = 0; i < limit; i++)
+				await guard.canActivate(context(path));
+			await expect(guard.canActivate(context(path))).rejects.toThrow(
+				'Too many requests',
+			);
+			const other = path.endsWith('qdss')
+				? '/screenings/dass42'
+				: '/screenings/qdss';
+			await expect(guard.canActivate(context(other))).resolves.toBe(true);
+		},
+	);
 	let module: TestingModule;
 	let guard: ApiRateLimitGuard;
 	let storage: ThrottlerStorageService;

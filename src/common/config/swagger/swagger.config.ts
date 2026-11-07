@@ -4,7 +4,7 @@ export interface SwaggerTagConfig {
 }
 
 export interface SwaggerBearerConfig {
-	name: string; 
+	name: string;
 	description?: string;
 }
 
@@ -15,7 +15,10 @@ export const SWAGGER_INFO = {
 } as const;
 
 export const SWAGGER_TAGS: SwaggerTagConfig[] = [
-	{ name: 'Auth', description: 'Authentication and account management endpoints' },
+	{
+		name: 'Auth',
+		description: 'Authentication and account management endpoints',
+	},
 ];
 
 export const SWAGGER_BEARER_AUTH: SwaggerBearerConfig[] = [
