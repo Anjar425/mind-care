@@ -1,0 +1,22 @@
+enum RuleAction {
+    CREATED
+    REVISED
+    ARCHIVED
+}
+
+model RuleAudit {
+    id           String     @id @default(uuid())
+    ruleId       Int
+    revisionId   String
+    actorUserId  String
+    action       RuleAction
+    reason       String?
+    createdAt    DateTime   @default(now())
+    resolutionProposalId String?
+    resolutionProposal RuleResolutionProposal? @relation(fields: [resolutionProposalId], references: [id], onDelete: Restrict)
+    rule         Rule       @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+    revision     RuleRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+    actor        User       @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+    @@index([ruleId, createdAt])
+}

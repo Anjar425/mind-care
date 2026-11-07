@@ -1,0 +1,176 @@
+enum RuleConflictStatus {
+    OPEN
+    SUPERSEDED
+    RESOLVED
+}
+
+enum RuleProposalStatus {
+    PENDING
+    APPLIED
+    REJECTED
+    CANCELLED
+    EXPIRED
+    STALE
+}
+
+enum RuleResolutionKind {
+    REVISE
+    ARCHIVE
+}
+
+enum RuleConsent {
+    APPROVE
+    REJECT
+}
+
+model RuleConflictAssessment {
+    id                String             @id @default(uuid())
+    groupId           Int
+    sourceHash        String
+    comparisonVersion String
+    sourceManifest    Json
+    createdAt         DateTime           @default(now())
+    group             Group              @relation(fields: [groupId], references: [id], onDelete: Restrict)
+    cases             RuleConflictCase[]
+
+    @@unique([groupId, sourceHash, comparisonVersion])
+}
+
+model RuleConflictCase {
+    id                String                     @id @default(uuid())
+    groupId           Int
+    assessmentId      String
+    caseKey           String
+    sourceHash        String
+    comparisonVersion String
+    normalized        Json
+    category          CATEGORY
+    status            RuleConflictStatus         @default(OPEN)
+    createdAt         DateTime                   @default(now())
+    closedAt          DateTime?
+    group             Group                      @relation(fields: [groupId], references: [id], onDelete: Restrict)
+    assessment        RuleConflictAssessment     @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+    members           RuleConflictMember[]
+    proposals         RuleResolutionProposal[]
+    notifications     RuleConflictNotification[]
+    audits            RuleConflictAudit[]
+
+    @@unique([groupId, caseKey, sourceHash])
+    @@index([groupId, status, createdAt])
+}
+
+model RuleConflictMember {
+    id             String           @id @default(uuid())
+    caseId         String
+    ruleId         Int
+    revisionId     String
+    authorExpertId String
+    severity       SEVERITY
+    case           RuleConflictCase @relation(fields: [caseId], references: [id], onDelete: Restrict)
+    rule           Rule             @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+    revision       RuleRevision     @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+    author         Expert           @relation(fields: [authorExpertId], references: [id], onDelete: Restrict)
+
+    @@unique([caseId, ruleId])
+}
+
+model RuleResolutionProposal {
+    id             String                      @id @default(uuid())
+    caseId         String
+    proposerUserId String
+    planDigest     String
+    reason         String
+    status         RuleProposalStatus          @default(PENDING)
+    createdAt      DateTime                    @default(now())
+    expiresAt      DateTime
+    decidedAt      DateTime?
+    case           RuleConflictCase            @relation(fields: [caseId], references: [id], onDelete: Restrict)
+    proposer       User                        @relation(fields: [proposerUserId], references: [id], onDelete: Restrict)
+    actions        RuleResolutionAction[]
+    participants   RuleResolutionParticipant[]
+    notifications  RuleConflictNotification[]
+    audits         RuleConflictAudit[]
+    ruleAudits     RuleAudit[]
+
+    @@index([caseId, status])
+}
+
+model RuleResolutionAction {
+    id             String                 @id @default(uuid())
+    proposalId     String
+    position       Int
+    ruleId         Int
+    revisionId     String
+    authorExpertId String
+    type           RuleResolutionKind
+    content        Json?
+    proposal       RuleResolutionProposal @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+    rule           Rule                   @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+    revision       RuleRevision           @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+    author         Expert                 @relation(fields: [authorExpertId], references: [id], onDelete: Restrict)
+
+    @@unique([proposalId, ruleId])
+    @@unique([proposalId, position])
+}
+
+model RuleResolutionParticipant {
+    id                 String                  @id @default(uuid())
+    proposalId         String
+    expertId           String
+    userId             String
+    membershipId       String?
+    membershipJoinedAt DateTime?
+    proposal           RuleResolutionProposal  @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+    expert             Expert                  @relation(fields: [expertId], references: [id], onDelete: Restrict)
+    user               User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+    membership         GroupMembership?        @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+    decision           RuleResolutionDecision?
+
+    @@unique([proposalId, expertId])
+}
+
+model RuleResolutionDecision {
+    id            String                    @id @default(uuid())
+    participantId String                    @unique
+    actorUserId   String
+    planDigest    String
+    value         RuleConsent
+    reason        String?
+    createdAt     DateTime                  @default(now())
+    participant   RuleResolutionParticipant @relation(fields: [participantId], references: [id], onDelete: Restrict)
+    actor         User                      @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+}
+
+model RuleConflictNotification {
+    id              String                  @id @default(uuid())
+    caseId          String
+    proposalId      String?
+    recipientUserId String
+    eventKey        String
+    type            String
+    createdAt       DateTime                @default(now())
+    readAt          DateTime?
+    case            RuleConflictCase        @relation(fields: [caseId], references: [id], onDelete: Restrict)
+    proposal        RuleResolutionProposal? @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+    recipient       User                    @relation(fields: [recipientUserId], references: [id], onDelete: Restrict)
+
+    @@unique([eventKey, recipientUserId])
+    @@index([recipientUserId, createdAt])
+}
+
+model RuleConflictAudit {
+    id          String                  @id @default(uuid())
+    groupId     Int
+    caseId      String?
+    proposalId  String?
+    actorUserId String
+    event       String
+    reason      String?
+    createdAt   DateTime                @default(now())
+    group       Group                   @relation(fields: [groupId], references: [id], onDelete: Restrict)
+    case        RuleConflictCase?       @relation(fields: [caseId], references: [id], onDelete: Restrict)
+    proposal    RuleResolutionProposal? @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+    actor       User                    @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+    @@index([caseId, createdAt])
+}

@@ -4,7 +4,8 @@ export interface RuntimeEnvironment {
 	DATABASE_URL: string;
 	JWT_ACCESS_SECRET: string;
 	JWT_REFRESH_SECRET: string;
-	APP_URL: string;
+	// Public base URL of the web frontend; email links point to its pages.
+	FRONTEND_URL: string;
 	MAIL_HOST: string;
 	MAIL_PORT: number;
 	MAIL_SECURE: boolean;
@@ -21,6 +22,8 @@ export interface RuntimeEnvironment {
 	RATE_LIMIT_FORGOT_PASSWORD: number;
 	RATE_LIMIT_SEND_VERIFICATION: number;
 	RATE_LIMIT_REFRESH: number;
+	RATE_LIMIT_SCREENING_QDSS: number;
+	RATE_LIMIT_SCREENING_DASS42: number;
 	HEALTH_CHECK_TIMEOUT_MS: number;
 	CREDENTIAL_STORAGE_ROOT: string;
 	CREDENTIAL_ENCRYPTION_KEY: string;
@@ -71,7 +74,7 @@ export function validateEnvironment(
 			if (
 				!protocols.includes(parsed.protocol) ||
 				!parsed.hostname ||
-				(key === 'APP_URL' &&
+				(key === 'FRONTEND_URL' &&
 					(parsed.username ||
 						parsed.password ||
 						parsed.search ||
@@ -125,7 +128,10 @@ export function validateEnvironment(
 		DATABASE_URL: url('DATABASE_URL', ['postgres:', 'postgresql:']),
 		JWT_ACCESS_SECRET: access,
 		JWT_REFRESH_SECRET: refresh,
-		APP_URL: url('APP_URL', ['http:', 'https:']).replace(/\/$/, ''),
+		FRONTEND_URL: url('FRONTEND_URL', ['http:', 'https:']).replace(
+			/\/$/,
+			'',
+		),
 		MAIL_HOST: text('MAIL_HOST'),
 		MAIL_PORT: integer('MAIL_PORT', 587, 65535),
 		MAIL_SECURE: secure === 'true',
@@ -182,6 +188,16 @@ export function validateEnvironment(
 			'HEALTH_CHECK_TIMEOUT_MS',
 			undefined,
 			2147483647,
+		),
+		RATE_LIMIT_SCREENING_QDSS: integer(
+			'RATE_LIMIT_SCREENING_QDSS',
+			10,
+			Number.MAX_SAFE_INTEGER,
+		),
+		RATE_LIMIT_SCREENING_DASS42: integer(
+			'RATE_LIMIT_SCREENING_DASS42',
+			5,
+			Number.MAX_SAFE_INTEGER,
 		),
 	};
 	for (const key of [

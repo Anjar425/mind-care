@@ -1,0 +1,182 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+
+jobs:
+  quality:
+    name: Lint, types and unit/e2e tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prisma generate
+      - run: pnpm typecheck
+      - run: pnpm lint:check
+      - run: pnpm format:check
+      - run: pnpm test:cov
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 14
+
+  database:
+    name: Migrations and PostgreSQL tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-bookworm
+        env:
+          POSTGRES_USER: mindcare
+          POSTGRES_PASSWORD: mindcare
+          POSTGRES_DB: mindcare
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mindcare -d mindcare"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGPASSWORD: mindcare
+      DATABASE_URL: postgresql://mindcare:mindcare@127.0.0.1:5432/mindcare
+      SHADOW_DATABASE_URL: postgresql://mindcare:mindcare@127.0.0.1:5432/mindcare_shadow
+      DB_TEST_DATABASE_URL: postgresql://mindcare:mindcare@127.0.0.1:5432/mindcare_test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prisma generate
+      - name: Create test and shadow databases
+        run: psql -h 127.0.0.1 -U mindcare -d mindcare -c 'CREATE DATABASE mindcare_test' -c 'CREATE DATABASE mindcare_shadow'
+      - name: Apply all migrations to an empty database
+        run: pnpm db:migrate
+      - name: Schema matches migrations
+        run: pnpm db:drift
+      - name: Reference seeding is idempotent
+        env:
+          NODE_ENV: test
+        run: |
+          pnpm build:seed
+          node dist/reference-seed/scripts/seed-reference-data.js --apply
+          node dist/reference-seed/scripts/seed-reference-data.js --apply
+      - name: Real-PostgreSQL tests
+        run: pnpm test:db
+
+  api-contract:
+    name: OpenAPI snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: docs/openapi.json is up to date
+        run: pnpm openapi:check
+      - name: Fetch base branch contract
+        id: base
+        if: github.event_name == 'pull_request'
+        run: |
+          if git show "origin/${{ github.base_ref }}:docs/openapi.json" > "$RUNNER_TEMP/base-openapi.json" 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Breaking API changes (label PR with breaking-change to accept)
+        if: >-
+          github.event_name == 'pull_request' &&
+          steps.base.outputs.exists == 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'breaking-change')
+        uses: oasdiff/oasdiff-action/breaking@17214aea5113d728707fdd7d84bc811f4850fe3a # v0.1.22
+        with:
+          base: ${{ runner.temp }}/base-openapi.json
+          revision: docs/openapi.json
+          fail-on: ERR
+
+  image:
+    name: Container image and smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build runtime image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: runtime
+          push: false
+          load: true
+          tags: mindcare-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build migrator image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: migrator
+          push: false
+          load: true
+          tags: mindcare-migrator:ci
+          cache-from: type=gha
+      - name: Start stack with synthetic settings
+        run: |
+          cp docker/smoke.env .env
+          docker compose up -d --build --wait --wait-timeout 180 api
+      - name: Readiness probe
+        run: curl --fail --silent --show-error --retry 10 --retry-delay 3 --retry-all-errors http://127.0.0.1:3000/health/ready
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail 200
+      - name: Stop stack
+        if: always()
+        run: docker compose down -v
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      # No `cache: pnpm`: audit reads only pnpm-lock.yaml, so no pnpm store is created and the
+      # post-step cache save would fail with "Path Validation Error".
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: No high or critical advisories in production dependencies
+        run: pnpm audit --prod --audit-level high
+      - name: No advisories in any dependency (patched/ignored ones excluded)
+        run: pnpm audit

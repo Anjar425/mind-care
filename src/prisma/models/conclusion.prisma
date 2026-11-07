@@ -17,7 +17,7 @@ model Conclusion {
   category CATEGORY
   severty  SEVERITY
 
-  rules Rule[]
+  ruleRevisions RuleRevision[]
 
   @@unique([category, severty])
 }

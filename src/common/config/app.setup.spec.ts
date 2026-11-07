@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { setupApplication } from './app.setup';
 import { setupSwagger } from './swagger/setup-swagger';
+import { screeningPrivacyMiddleware } from '../../screenings/screening-privacy.middleware';
 
 jest.mock('./swagger/setup-swagger', () => ({ setupSwagger: jest.fn() }));
 
@@ -21,6 +22,10 @@ describe('setupApplication', () => {
 			CORS_ORIGIN: 'http://localhost:5173',
 		});
 		expect(mock.enableShutdownHooks).toHaveBeenCalledTimes(1);
+		expect(mock.use).toHaveBeenCalledWith(
+			'/screenings',
+			screeningPrivacyMiddleware,
+		);
 		expect(mock.enableCors).toHaveBeenCalledWith(
 			expect.objectContaining({
 				origin: ['http://localhost:5173'],

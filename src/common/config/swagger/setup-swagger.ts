@@ -1,5 +1,9 @@
 import { INestApplication } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import {
+	DocumentBuilder,
+	SwaggerModule,
+	type OpenAPIObject,
+} from '@nestjs/swagger';
 import {
 	SWAGGER_INFO,
 	SWAGGER_TAGS,
@@ -7,11 +11,8 @@ import {
 } from './swagger.config';
 import type { RuntimeEnvironment } from '../environment.config';
 
-export function setupSwagger(
-	app: INestApplication,
-	environment: RuntimeEnvironment['NODE_ENV'],
-): void {
-	if (environment === 'production') return;
+// Shared by the /docs UI and scripts/generate-openapi.ts (committed docs/openapi.json).
+export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
 	const documentBuilder = new DocumentBuilder()
 		.setTitle(SWAGGER_INFO.title)
 		.setDescription(SWAGGER_INFO.description)
@@ -33,9 +34,15 @@ export function setupSwagger(
 		);
 	});
 
-	const document = SwaggerModule.createDocument(app, documentBuilder.build());
+	return SwaggerModule.createDocument(app, documentBuilder.build());
+}
 
-	SwaggerModule.setup('docs', app, document, {
+export function setupSwagger(
+	app: INestApplication,
+	environment: RuntimeEnvironment['NODE_ENV'],
+): void {
+	if (environment === 'production') return;
+	SwaggerModule.setup('docs', app, buildOpenApiDocument(app), {
 		swaggerOptions: {
 			defaultModelsExpandDepth: -1,
 			persistAuthorization: false,

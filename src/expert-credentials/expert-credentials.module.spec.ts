@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
-import { MailerService } from '@nestjs-modules/mailer';
+import { MAIL_TRANSPORT } from '../mail/mail-transport';
 import { ExpertCredentialsModule } from './expert-credentials.module';
 import { ExpertCredentialsController } from './expert-credentials.controller';
 import { CredentialEligibilityService } from './credential-eligibility.service';
@@ -30,8 +30,8 @@ describe('ExpertCredentialsModule composition', () => {
 			.useValue(createCredentialMocks().prisma)
 			.overrideProvider(MailService)
 			.useValue({ sendCredentialExpiryReminder: jest.fn() })
-			.overrideProvider(MailerService)
-			.useValue({ sendMail: jest.fn() })
+			.overrideProvider(MAIL_TRANSPORT)
+			.useValue({ sendMail: jest.fn(), close: jest.fn() })
 			.compile();
 		expect(module.get(ExpertCredentialsController)).toBeDefined();
 		expect(module.get(CredentialEligibilityService)).toBeDefined();

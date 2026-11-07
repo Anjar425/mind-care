@@ -205,6 +205,22 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 			.expect(404);
 	});
 
+	it('should reject a markup account name before it can reach email templates', async () => {
+		const response = await request(app.getHttpServer())
+			.post('/auth/user/register')
+			.send({
+				name: '<a href="https://evil.test">Example</a>',
+				email: 'markup@example.com',
+				password,
+				confirm_password: password,
+			})
+			.expect(400);
+		expect((response.body as { message: string[] }).message).toContain(
+			'name contains unsupported characters',
+		);
+		expect(mail.sendVerificationEmail).not.toHaveBeenCalled();
+	});
+
 	it('should reject duplicate identity when email case differs', async () => {
 		await request(app.getHttpServer())
 			.post('/auth/user/register')

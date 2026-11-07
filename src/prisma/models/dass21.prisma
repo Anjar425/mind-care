@@ -5,5 +5,5 @@ model DASS21 {
   category       CATEGORY
   catalogVersion String
 
-  preferences Preferences?
+  preferences Preferences[]
 }
