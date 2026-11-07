@@ -1,6 +1,30 @@
 import { historyDocument } from '../../../test/history-mocks';
 import { historySeries, validateHistoryDocument } from './history-document';
+import { screeningPresentation } from '../../screenings/client/screening-presentation';
 describe('Private history payload and comparable graph series', () => {
+	it('should keep version1 valid and validate version2 without mutating old records', () => {
+		const v1 = historyDocument(true);
+		const v2 = {
+			...v1,
+			schemaVersion: 2 as const,
+			presentation: screeningPresentation(v1.instrument, v1.result),
+		};
+		expect(() => validateHistoryDocument(v1)).not.toThrow();
+		expect(() => validateHistoryDocument(v2)).not.toThrow();
+		expect(v1).not.toHaveProperty('presentation');
+		expect(() =>
+			validateHistoryDocument({
+				...v2,
+				presentation: {
+					...v2.presentation,
+					message: 'unapproved message',
+				},
+			}),
+		).toThrow();
+		expect(() =>
+			validateHistoryDocument({ ...v1, schemaVersion: 2 }),
+		).toThrow();
+	});
 	it.each([false, true])(
 		'should retain exact complete payload for DASS42=%s',
 		(dass42) => {

@@ -1,4 +1,8 @@
 // Browser-safe contract: no Nest, Prisma, Buffer, credential or server crypto imports.
+import {
+	screeningPresentation,
+	type ScreeningPresentation,
+} from '../../screenings/client/screening-presentation';
 export const LEVELS = [
 	'Normal',
 	'Mild',
@@ -18,8 +22,7 @@ export interface HistoryContext {
 	sourceHash?: string;
 	evaluatedAt?: string;
 }
-export interface HistoryDocument {
-	schemaVersion: 1;
+interface HistoryDocumentBody {
 	instrument: 'QDSS_DASS21' | 'DASS42_MAMDANI';
 	assessedAt: string;
 	context: HistoryContext;
@@ -27,6 +30,11 @@ export interface HistoryDocument {
 	answers: { questionId: string; score: number }[];
 	result: Record<string, unknown>;
 }
+export type HistoryDocument = HistoryDocumentBody &
+	(
+		| { schemaVersion: 1; presentation?: never }
+		| { schemaVersion: 2; presentation: ScreeningPresentation }
+	);
 const categories = ['depression', 'anxiety', 'stress'] as const;
 function invalid(): never {
 	throw new Error('Invalid private history document');
@@ -75,6 +83,10 @@ function time(value: unknown) {
 export function validateHistoryDocument(
 	value: unknown,
 ): asserts value is HistoryDocument {
+	const version =
+		value && typeof value === 'object' && 'schemaVersion' in value
+			? value.schemaVersion
+			: undefined;
 	const d = record(value, [
 		'schemaVersion',
 		'instrument',
@@ -83,9 +95,10 @@ export function validateHistoryDocument(
 		'disclaimer',
 		'answers',
 		'result',
+		...(version === 2 ? ['presentation'] : []),
 	]);
 	if (
-		d.schemaVersion !== 1 ||
+		(d.schemaVersion !== 1 && d.schemaVersion !== 2) ||
 		!['QDSS_DASS21', 'DASS42_MAMDANI'].includes(d.instrument as string)
 	)
 		invalid();
@@ -165,6 +178,28 @@ export function validateHistoryDocument(
 			const degrees = record(category.membership_degrees, [...LEVELS]);
 			for (const level of LEVELS) number(degrees[level], 0, 1);
 		}
+	if (version === 2) {
+		const presentation = record(d.presentation, [
+			'version',
+			'consultationRecommended',
+			'qualifyingCategories',
+			'message',
+		]);
+		const expectedPresentation = screeningPresentation(
+			qdss ? 'QDSS_DASS21' : 'DASS42_MAMDANI',
+			r,
+		);
+		if (
+			presentation.version !== expectedPresentation.version ||
+			presentation.consultationRecommended !==
+				expectedPresentation.consultationRecommended ||
+			presentation.message !== expectedPresentation.message ||
+			!Array.isArray(presentation.qualifyingCategories) ||
+			JSON.stringify(presentation.qualifyingCategories) !==
+				JSON.stringify(expectedPresentation.qualifyingCategories)
+		)
+			invalid();
+	}
 }
 
 export function historySeries(documents: readonly HistoryDocument[]) {

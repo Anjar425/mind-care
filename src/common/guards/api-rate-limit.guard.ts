@@ -16,8 +16,18 @@ type ActionLimit =
 	| 'RATE_LIMIT_FORGOT_PASSWORD'
 	| 'RATE_LIMIT_SEND_VERIFICATION'
 	| 'RATE_LIMIT_REFRESH'
+	| 'RATE_LIMIT_SCREENING_QDSS'
+	| 'RATE_LIMIT_SCREENING_DASS42'
 	| 'CREDENTIAL_UPLOAD_RATE_LIMIT';
 const ACTIONS: Record<string, { name: string; setting: ActionLimit }> = {
+	'/screenings/qdss': {
+		name: 'screening-qdss',
+		setting: 'RATE_LIMIT_SCREENING_QDSS',
+	},
+	'/screenings/dass42': {
+		name: 'screening-dass42',
+		setting: 'RATE_LIMIT_SCREENING_DASS42',
+	},
 	'/expert/me/credentials/:type': {
 		name: 'credential-upload',
 		setting: 'CREDENTIAL_UPLOAD_RATE_LIMIT',

@@ -98,6 +98,9 @@ export function historyTransport(request: HistoryApiRequest): HistoryTransport {
 	};
 }
 export class PrivateHistoryClient {
+	accountId(): string {
+		return this.ownerId;
+	}
 	constructor(
 		private readonly ownerId: string,
 		private readonly api: HistoryTransport,

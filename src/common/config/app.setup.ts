@@ -5,6 +5,7 @@ import { HttpExceptionFilter } from '../filter/http-exception/http-exception.fil
 import type { RuntimeEnvironment } from './environment.config';
 import { setupSwagger } from './swagger/setup-swagger';
 import { historyPrivacyMiddleware } from '../../history/history-privacy.middleware';
+import { screeningPrivacyMiddleware } from '../../screenings/screening-privacy.middleware';
 
 export function setupApplication(
 	app: INestApplication,
@@ -28,6 +29,7 @@ export function setupApplication(
 		credentials: false,
 	});
 	app.use('/me/history', historyPrivacyMiddleware);
+	app.use('/screenings', screeningPrivacyMiddleware);
 	app.useGlobalInterceptors(app.get(ResponseInterceptor));
 	app.useGlobalFilters(new HttpExceptionFilter());
 	app.useGlobalPipes(

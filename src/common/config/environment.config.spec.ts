@@ -24,6 +24,23 @@ const valid = () => ({
 });
 
 describe('validateEnvironment', () => {
+	it('should validate optional screening rate settings and retain reviewed local defaults without an env-file edit', () => {
+		const config = validateEnvironment(valid());
+		expect(config.RATE_LIMIT_SCREENING_QDSS).toBe(10);
+		expect(config.RATE_LIMIT_SCREENING_DASS42).toBe(5);
+		expect(
+			validateEnvironment({ ...valid(), RATE_LIMIT_SCREENING_QDSS: '8' })
+				.RATE_LIMIT_SCREENING_QDSS,
+		).toBe(8);
+		for (const key of [
+			'RATE_LIMIT_SCREENING_QDSS',
+			'RATE_LIMIT_SCREENING_DASS42',
+		])
+			for (const value of ['0', '1.5', 'NaN', ''])
+				expect(() =>
+					validateEnvironment({ ...valid(), [key]: value }),
+				).toThrow(key);
+	});
 	it('should gate production startup when its runtime policy has not been approved', () => {
 		expect(() =>
 			validateEnvironment({ ...valid(), NODE_ENV: 'production' }),
