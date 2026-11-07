@@ -124,8 +124,7 @@ export class GroupAuditDto {
 	action!: string;
 	@ApiProperty() actorUserId!: string;
 	@ApiProperty({ type: String, nullable: true }) affectedExpertId!:
-		| string
-		| null;
+		string | null;
 	@ApiProperty({ type: String, nullable: true }) invitationId!: string | null;
 	@ApiProperty({ type: String, nullable: true }) transferId!: string | null;
 	@ApiProperty({ type: String, nullable: true }) reason!: string | null;

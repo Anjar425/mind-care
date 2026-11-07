@@ -132,13 +132,11 @@ export class CredentialStorageService {
 			try {
 				await fs.mkdir(current, { mode: 0o700 });
 			} catch (error) {
-				if (
-					!(
-						error instanceof Error &&
-						'code' in error &&
-						error.code === 'EEXIST'
-					)
-				)
+				if (!(
+					error instanceof Error &&
+					'code' in error &&
+					error.code === 'EEXIST'
+				))
 					throw new ServiceUnavailableException(
 						'Private storage is unavailable',
 					);

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { MailerService } from '@nestjs-modules/mailer';
 import { MailService } from './mail.service';
 import { MailTemplateRenderer } from './mail-template.renderer';
+import { MAIL_TRANSPORT } from './mail-transport';
 import {
 	runtimeConfigMock,
 	runtimeConfigProvider,
@@ -14,14 +14,16 @@ describe('MailService configuration', () => {
 	let module: TestingModule;
 	let service: MailService;
 	const sendMail = jest.fn();
+	const close = jest.fn();
 	beforeEach(async () => {
 		sendMail.mockReset().mockResolvedValue(undefined);
+		close.mockReset();
 		module = await Test.createTestingModule({
 			providers: [
 				MailService,
 				MailTemplateRenderer,
 				runtimeConfigProvider,
-				{ provide: MailerService, useValue: { sendMail } },
+				{ provide: MAIL_TRANSPORT, useValue: { sendMail, close } },
 			],
 		}).compile();
 		service = module.get(MailService);
@@ -29,6 +31,32 @@ describe('MailService configuration', () => {
 	afterEach(async () => {
 		jest.clearAllMocks();
 		await module.close();
+	});
+	it('should send from the configured sender address', async () => {
+		await service.sendVerificationEmail(
+			'test@example.test',
+			'synthetic-token',
+			'Example',
+		);
+		expect(sendMail).toHaveBeenCalledWith(
+			expect.objectContaining({
+				from: 'test@example.test',
+				to: 'test@example.test',
+				subject: 'Verify Your Email - MindCare',
+			}),
+		);
+	});
+	it('should close the transport when the module shuts down', async () => {
+		await module.close();
+		expect(close).toHaveBeenCalledTimes(1);
+		module = await Test.createTestingModule({
+			providers: [
+				MailService,
+				MailTemplateRenderer,
+				runtimeConfigProvider,
+				{ provide: MAIL_TRANSPORT, useValue: { sendMail, close } },
+			],
+		}).compile();
 	});
 	it('should use the configured app URL when preparing verification mail', async () => {
 		await service.sendVerificationEmail(
@@ -75,6 +103,7 @@ describe('MailService configuration', () => {
 			'2027-12-12',
 		);
 		expect(sendMail).toHaveBeenCalledWith({
+			from: 'test@example.test',
 			to: 'synthetic@example.test',
 			subject: 'STR credential expiry reminder - MindCare',
 			text: expect.stringContaining('2027-12-12') as unknown,

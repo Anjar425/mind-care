@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
-import { MailerService } from '@nestjs-modules/mailer';
+import { MAIL_TRANSPORT } from '../mail/mail-transport';
 import { GroupsModule } from './groups.module';
 import { GroupsController } from './groups.controller';
 import { GroupInvitationsController } from './group-invitations.controller';
@@ -34,8 +34,8 @@ describe('GroupsModule integration', () => {
 			.useValue(createGroupsMocks().prisma)
 			.overrideProvider(MailService)
 			.useValue({ sendCredentialExpiryReminder: jest.fn() })
-			.overrideProvider(MailerService)
-			.useValue({ sendMail: jest.fn() })
+			.overrideProvider(MAIL_TRANSPORT)
+			.useValue({ sendMail: jest.fn(), close: jest.fn() })
 			.overrideProvider(CredentialMaintenanceService)
 			.useValue({ tick: jest.fn() })
 			.compile();

@@ -3,11 +3,7 @@ import type { SourceCategory } from '../reference-data/reference-data.types';
 import type { RuleAst } from '../rules/rules.types';
 
 export type SourceSeverity =
-	| 'Normal'
-	| 'Mild'
-	| 'Moderate'
-	| 'Severe'
-	| 'Extremely Severe';
+	'Normal' | 'Mild' | 'Moderate' | 'Severe' | 'Extremely Severe';
 export interface Dass42Answer {
 	dass42Id: string;
 	score: number;

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
-import { MailerService } from '@nestjs-modules/mailer';
+import { MAIL_TRANSPORT } from '../mail/mail-transport';
 import { ExpertPreferencesModule } from './expert-preferences.module';
 import { ExpertPreferencesController } from './expert-preferences.controller';
 import { ExpertPreferencesService } from './expert-preferences.service';
@@ -30,8 +30,8 @@ describe('ExpertPreferencesModule composition', () => {
 			.useValue(createExpertPreferencesMocks().prisma)
 			.overrideProvider(MailService)
 			.useValue({ sendCredentialExpiryReminder: jest.fn() })
-			.overrideProvider(MailerService)
-			.useValue({ sendMail: jest.fn() })
+			.overrideProvider(MAIL_TRANSPORT)
+			.useValue({ sendMail: jest.fn(), close: jest.fn() })
 			.overrideProvider(CredentialMaintenanceService)
 			.useValue({ tick: jest.fn() })
 			.compile();

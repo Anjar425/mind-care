@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
-import { MailerService } from '@nestjs-modules/mailer';
+import { MAIL_TRANSPORT } from '../mail/mail-transport';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { CredentialMaintenanceService } from '../expert-credentials/credential-maintenance.service';
@@ -23,8 +23,8 @@ it('should compose the actual internal module without controllers, environment o
 		.useValue(createRulesMocks().prisma)
 		.overrideProvider(MailService)
 		.useValue({ sendCredentialExpiryReminder: jest.fn() })
-		.overrideProvider(MailerService)
-		.useValue({ sendMail: jest.fn() })
+		.overrideProvider(MAIL_TRANSPORT)
+		.useValue({ sendMail: jest.fn(), close: jest.fn() })
 		.overrideProvider(CredentialMaintenanceService)
 		.useValue({ tick: jest.fn() })
 		.compile();

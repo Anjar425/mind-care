@@ -10,5 +10,7 @@ export default defineConfig({
 	},
 	datasource: {
 		url: process.env['DATABASE_URL'],
+		// Optional; only `pnpm db:drift` needs an empty shadow database.
+		shadowDatabaseUrl: process.env['SHADOW_DATABASE_URL'],
 	},
 });

@@ -1,27 +1,35 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { RuntimeEnvironment } from '../common/config/environment.config';
-import { MailerService } from '@nestjs-modules/mailer';
 import { MailTemplateRenderer } from './mail-template.renderer';
+import {
+	MAIL_TRANSPORT,
+	type MailMessage,
+	type MailTransport,
+} from './mail-transport';
 
 function formatMinutes(minutes: number): string {
 	return `${minutes} minute${minutes === 1 ? '' : 's'}`;
 }
 
 @Injectable()
-export class MailService {
+export class MailService implements OnModuleDestroy {
 	constructor(
-		private readonly mailerService: MailerService,
+		@Inject(MAIL_TRANSPORT) private readonly transport: MailTransport,
 		private readonly config: ConfigService<RuntimeEnvironment, true>,
 		private readonly templates: MailTemplateRenderer,
 	) {}
+
+	onModuleDestroy(): void {
+		this.transport.close();
+	}
 
 	async sendCredentialExpiryReminder(
 		email: string,
 		type: 'STR' | 'SIP',
 		expiryDate: string,
 	): Promise<void> {
-		await this.mailerService.sendMail({
+		await this.send({
 			to: email,
 			subject: `${type} credential expiry reminder - MindCare`,
 			text: `Your ${type} credential is valid through ${expiryDate} (Asia/Jakarta). Submit a renewal for review before expiry to maintain contribution eligibility. This message does not contain screening results.`,
@@ -44,7 +52,7 @@ export class MailService {
 			year: String(new Date().getFullYear()),
 		});
 
-		await this.mailerService.sendMail({
+		await this.send({
 			to: email,
 			subject: 'Verify Your Email - MindCare',
 			html,
@@ -65,10 +73,17 @@ export class MailService {
 			year: String(new Date().getFullYear()),
 		});
 
-		await this.mailerService.sendMail({
+		await this.send({
 			to: email,
 			subject: 'Reset Your Password - MindCare',
 			html,
+		});
+	}
+
+	private async send(message: Omit<MailMessage, 'from'>): Promise<void> {
+		await this.transport.sendMail({
+			from: this.config.get('MAIL_FROM', { infer: true }),
+			...message,
 		});
 	}
 }

@@ -14,14 +14,14 @@ export function Match(property: string, validationOptions?: ValidationOptions) {
 			constraints: [property],
 			validator: {
 				validate(value: unknown, args: ValidationArguments) {
-					const [relatedProperty] = args.constraints;
+					const [relatedProperty] = args.constraints as [string];
 					const relatedValue = (
 						args.object as Record<string, unknown>
 					)[relatedProperty];
 					return value === relatedValue;
 				},
 				defaultMessage(args: ValidationArguments) {
-					const [relatedProperty] = args.constraints;
+					const [relatedProperty] = args.constraints as [string];
 					return `${args.property} must match ${relatedProperty}`;
 				},
 			},

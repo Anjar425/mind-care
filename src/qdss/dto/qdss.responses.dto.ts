@@ -59,8 +59,7 @@ export class QdssModelResponseDto {
 	@ApiProperty({ enum: ['AVAILABLE', 'UNAVAILABLE'] })
 	nextCalibrationStatus!: string;
 	@ApiProperty({ type: String, nullable: true }) nextInputHash!:
-		| string
-		| null;
+		string | null;
 	@ApiProperty({ type: () => QdssActiveModelDto, nullable: true })
 	model!: QdssActiveModelDto | null;
 }

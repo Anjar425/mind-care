@@ -55,6 +55,5 @@ export class HistorySavedDto extends HistoryMutationDto {
 export class HistoryPageResponseDto extends HistoryMutationDto {
 	@ApiProperty({ type: () => [HistoryEntryDto] }) entries!: HistoryEntryDto[];
 	@ApiProperty({ type: String, format: 'uuid', nullable: true }) nextCursor!:
-		| string
-		| null;
+		string | null;
 }

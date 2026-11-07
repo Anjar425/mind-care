@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
-import { MailerService } from '@nestjs-modules/mailer';
+import { MAIL_TRANSPORT } from '../mail/mail-transport';
 import { RulesModule } from './rules.module';
 import { RulesController } from './rules.controller';
 import { RulesService } from './rules.service';
@@ -30,8 +30,8 @@ describe('RulesModule composition', () => {
 			.useValue(createRulesMocks().prisma)
 			.overrideProvider(MailService)
 			.useValue({ sendCredentialExpiryReminder: jest.fn() })
-			.overrideProvider(MailerService)
-			.useValue({ sendMail: jest.fn() })
+			.overrideProvider(MAIL_TRANSPORT)
+			.useValue({ sendMail: jest.fn(), close: jest.fn() })
 			.overrideProvider(CredentialMaintenanceService)
 			.useValue({ tick: jest.fn() })
 			.compile();

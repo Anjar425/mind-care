@@ -1,0 +1,17 @@
+.git
+.github
+node_modules
+dist
+coverage
+test
+docs
+.private
+src/prisma/generated
+.env
+.env.*
+!.env.example
+*.log
+.vscode
+.idea
+Dockerfile
+docker-compose.yml

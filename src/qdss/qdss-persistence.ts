@@ -99,5 +99,7 @@ export async function lockConfiguration(
 ) {
 	await lockGroup(tx, userIds, groupId ?? undefined);
 	const key = configurationId(groupId);
-	await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
+	// pg_advisory_xact_lock returns void, which $queryRaw cannot deserialize; $executeRaw
+	// runs the statement without reading the result (verified in test/db).
+	await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
 }

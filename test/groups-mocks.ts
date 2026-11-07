@@ -584,6 +584,7 @@ export function createGroupsMocks() {
 			),
 		},
 		$queryRaw: jest.fn().mockResolvedValue([]),
+		$executeRaw: jest.fn().mockResolvedValue(1),
 	};
 	let queue: Promise<unknown> = Promise.resolve();
 	const transaction = jest.fn(
