@@ -1,10 +1,7 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ResponseInterceptor } from './common/interceptor/response/response.interceptor';
-import { UserService } from './user/user.service';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { RuntimeConfigModule } from './common/config/runtime-config.module';
@@ -51,11 +48,8 @@ import { ScreeningsModule } from './screenings/screenings.module';
 		HistoryModule,
 		ScreeningsModule,
 	],
-	controllers: [AppController],
 	providers: [
-		AppService,
 		ResponseInterceptor,
-		UserService,
 		{ provide: APP_GUARD, useClass: ApiRateLimitGuard },
 	],
 })

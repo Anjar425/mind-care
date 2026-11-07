@@ -3,6 +3,7 @@ import {
 	IsEmail,
 	IsNotEmpty,
 	IsString,
+	Matches,
 	MaxLength,
 	MinLength,
 } from 'class-validator';
@@ -10,6 +11,9 @@ import {
 	NormalizeEmail,
 	PasswordPolicy,
 } from '@/common/utils/account-validation.util';
+
+// Names reach HTML email; keep titles/punctuation needed for STR/SIP holder matching.
+export const ACCOUNT_NAME_PATTERN = /^(?=.*\p{L})[^<>&"`\\/\p{Cc}\p{Cf}]+$/u;
 
 export class UserDto {
 	@ApiProperty({
@@ -22,8 +26,9 @@ export class UserDto {
 	email!: string;
 
 	@ApiProperty({
-		description: 'Registered account name',
-		example: 'User',
+		description:
+			'Registered account name; must contain a letter and may include titles such as "S.Psi., M.Psi.". Rejects < > & " ` \\ / and control or invisible characters',
+		example: 'Siti Rahma, S.Psi.',
 		minLength: 2,
 		maxLength: 100,
 	})
@@ -31,6 +36,9 @@ export class UserDto {
 	@IsString()
 	@MinLength(2)
 	@MaxLength(100)
+	@Matches(ACCOUNT_NAME_PATTERN, {
+		message: 'name contains unsupported characters',
+	})
 	name!: string;
 
 	@ApiProperty({

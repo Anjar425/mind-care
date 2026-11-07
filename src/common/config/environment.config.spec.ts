@@ -4,7 +4,7 @@ const valid = () => ({
 	DATABASE_URL: 'postgresql://synthetic:synthetic@localhost/test',
 	JWT_ACCESS_SECRET: 'synthetic-access-secret-at-least-32-bytes',
 	JWT_REFRESH_SECRET: 'synthetic-refresh-secret-at-least-32-bytes',
-	APP_URL: 'http://localhost:5173',
+	FRONTEND_URL: 'http://localhost:5173',
 	MAIL_HOST: 'smtp.example.test',
 	MAIL_USER: 'synthetic',
 	MAIL_PASS: 'synthetic',
@@ -41,6 +41,20 @@ describe('validateEnvironment', () => {
 					validateEnvironment({ ...valid(), [key]: value }),
 				).toThrow(key);
 	});
+	it('should name FRONTEND_URL when only the retired APP_URL key is supplied', () => {
+		const { FRONTEND_URL, ...rest } = valid();
+		expect(() =>
+			validateEnvironment({ ...rest, APP_URL: FRONTEND_URL }),
+		).toThrow('FRONTEND_URL');
+	});
+	it('should strip a trailing slash from FRONTEND_URL', () => {
+		expect(
+			validateEnvironment({
+				...valid(),
+				FRONTEND_URL: 'https://app.example.test/',
+			}).FRONTEND_URL,
+		).toBe('https://app.example.test');
+	});
 	it('should gate production startup when its runtime policy has not been approved', () => {
 		expect(() =>
 			validateEnvironment({ ...valid(), NODE_ENV: 'production' }),
@@ -67,8 +81,9 @@ describe('validateEnvironment', () => {
 		['MAIL_PORT', '-1'],
 		['MAIL_SECURE', 'yes'],
 		['DATABASE_URL', 'https://example.test'],
-		['APP_URL', 'http://user:pass@example.test'],
-		['APP_URL', 'http://example.test/?token=synthetic'],
+		['FRONTEND_URL', 'http://user:pass@example.test'],
+		['FRONTEND_URL', 'http://example.test/?token=synthetic'],
+		['FRONTEND_URL', 'http://example.test/#token=synthetic'],
 		['JWT_ACCESS_SECRET', 'short'],
 		['JWT_REFRESH_SECRET', 'short'],
 		['VERIFICATION_TOKEN_EXPIRY_MINUTES', 'NaN'],

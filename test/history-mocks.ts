@@ -79,7 +79,7 @@ export const historyDocument = (dass42 = false): HistoryDocument => ({
 				copyHistoryLabel: 'Moderate',
 			},
 });
-interface EntryWhere {
+export interface EntryWhere {
 	id?: string;
 	vaultId?: string;
 	vault?: { userId: string };

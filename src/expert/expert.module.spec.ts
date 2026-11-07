@@ -4,7 +4,6 @@ import { MailerService } from '@nestjs-modules/mailer';
 import { ExpertModule } from './expert.module';
 import { ExpertProfileController } from './expert-profile.controller';
 import { ExpertProfileService } from './expert-profile.service';
-import { ExpertController } from './expert.controller';
 import { CredentialMaintenanceService } from '../expert-credentials/credential-maintenance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
@@ -37,6 +36,8 @@ describe('ExpertModule composition', () => {
 			.compile();
 		expect(module.get(ExpertProfileController)).toBeDefined();
 		expect(module.get(ExpertProfileService)).toBeDefined();
-		expect(() => module.get(ExpertController)).toThrow();
+		expect(Reflect.getMetadata('controllers', ExpertModule)).toEqual([
+			ExpertProfileController,
+		]);
 	});
 });

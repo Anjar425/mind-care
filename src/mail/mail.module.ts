@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import type { RuntimeEnvironment } from '../common/config/environment.config';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { MailService } from './mail.service';
+import { MailTemplateRenderer } from './mail-template.renderer';
 
 @Module({
 	imports: [
@@ -27,7 +28,7 @@ import { MailService } from './mail.service';
 			}),
 		}),
 	],
-	providers: [MailService],
+	providers: [MailService, MailTemplateRenderer],
 	exports: [MailService],
 })
 export class MailModule {}

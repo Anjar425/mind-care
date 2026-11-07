@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MailerService } from '@nestjs-modules/mailer';
 import { MailService } from './mail.service';
-import { runtimeConfigProvider } from '../../test/runtime-config.mock';
+import { MailTemplateRenderer } from './mail-template.renderer';
+import {
+	runtimeConfigMock,
+	runtimeConfigProvider,
+	syntheticConfig,
+} from '../../test/runtime-config.mock';
 
 jest.unmock('@/mail/mail.service');
 
@@ -14,6 +19,7 @@ describe('MailService configuration', () => {
 		module = await Test.createTestingModule({
 			providers: [
 				MailService,
+				MailTemplateRenderer,
 				runtimeConfigProvider,
 				{ provide: MailerService, useValue: { sendMail } },
 			],
@@ -75,6 +81,60 @@ describe('MailService configuration', () => {
 		});
 		expect((sendMail.mock.calls as unknown[][])[0][0]).not.toHaveProperty(
 			'attachments',
+		);
+	});
+	it.each([
+		['verification', 'sendVerificationEmail'],
+		['password reset', 'sendPasswordResetEmail'],
+	] as const)(
+		'should escape a markup account name in %s mail',
+		async (_, method) => {
+			await service[method](
+				'test@example.test',
+				'synthetic-token',
+				'<a href="https://evil.test">x</a>',
+			);
+			const { html } = (
+				sendMail.mock.calls as [{ html: string }][]
+			)[0][0];
+			expect(html).toContain(
+				'Hello &lt;a href=&quot;https://evil.test&quot;&gt;x&lt;/a&gt;,',
+			);
+			expect(html).not.toContain('<a href="https://evil.test">');
+		},
+	);
+	describe('expiry wording', () => {
+		const useExpiry = (minutes: number) =>
+			runtimeConfigMock.get.mockImplementation(
+				(key: keyof typeof syntheticConfig) =>
+					key === 'VERIFICATION_TOKEN_EXPIRY_MINUTES' ||
+					key === 'RESET_TOKEN_EXPIRY_MINUTES'
+						? minutes
+						: syntheticConfig[key],
+			);
+		afterEach(() =>
+			runtimeConfigMock.get.mockImplementation(
+				(key: keyof typeof syntheticConfig) => syntheticConfig[key],
+			),
+		);
+		it.each([
+			['sendVerificationEmail', 45, 'expire in 45 minutes.'],
+			['sendPasswordResetEmail', 30, 'expire in 30 minutes.'],
+			['sendVerificationEmail', 1, 'expire in 1 minute.'],
+		] as const)(
+			'%s should state the configured %i-minute expiry',
+			async (method, minutes, expected) => {
+				useExpiry(minutes);
+				await service[method](
+					'test@example.test',
+					'synthetic-token',
+					'Example',
+				);
+				const { html } = (
+					sendMail.mock.calls as [{ html: string }][]
+				)[0][0];
+				expect(html).toContain(expected);
+			},
 		);
 	});
 });

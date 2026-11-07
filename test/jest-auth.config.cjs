@@ -4,6 +4,7 @@ module.exports = {
 	testMatch: [
 		'<rootDir>/src/auth/**/*.spec.ts',
 		'<rootDir>/src/user/user.service.spec.ts',
+		'<rootDir>/src/user/dto/user.dto.spec.ts',
 		'<rootDir>/src/common/utils/account-validation.util.spec.ts',
 		'<rootDir>/test/auth.e2e-spec.ts',
 	],

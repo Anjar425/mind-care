@@ -83,7 +83,7 @@ describe('Exact immutable correction plan', () => {
 	] as const)('rejects invalid %s plan input', (kind) => {
 		const action = {
 			ruleId: 1,
-			expectedRevisionId: randomUUID(),
+			expectedRevisionId: randomUUID() as string,
 			type: 'ARCHIVE' as 'ARCHIVE' | 'REVISE',
 			content: undefined as unknown,
 		};

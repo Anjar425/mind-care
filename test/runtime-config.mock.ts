@@ -7,7 +7,7 @@ export const syntheticConfig: RuntimeEnvironment = {
 	DATABASE_URL: 'postgresql://synthetic:synthetic@localhost/test',
 	JWT_ACCESS_SECRET: 'synthetic-access-key-for-auth-tests',
 	JWT_REFRESH_SECRET: 'synthetic-refresh-key-for-auth-tests',
-	APP_URL: 'http://localhost:5173',
+	FRONTEND_URL: 'http://localhost:5173',
 	MAIL_HOST: 'smtp.example.test',
 	MAIL_PORT: 587,
 	MAIL_SECURE: false,

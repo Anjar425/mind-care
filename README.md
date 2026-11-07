@@ -1,98 +1,92 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# MindCare backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS + Prisma (PostgreSQL) API for MindCare, a mental-health **screening support** platform. It is not a diagnostic tool: every result carries a non-diagnostic disclaimer.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Two independent screening systems:
 
-## Description
+- **QDSS / DASS21** — group-decision consensus over expert preferences, calibrated with a genetic algorithm per expert group (and globally).
+- **DASS42 Mamdani** — fuzzy rule-based inference over rules authored by credentialed experts within a group. Fails closed: invalid or conflicting rules never produce a partial or fallback result.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Roles
 
-## Project setup
+| Role | Can |
+|---|---|
+| Guest | Run QDSS (global or an eligible published group) and DASS42 (eligible published group). Nothing is stored. |
+| USER | Same as guest, plus an optional private history encrypted on the client with user-held keys. |
+| EXPERT | Upload STR/SIP credentials, maintain profile and DASS21 preferences, join groups, author DASS42 rules, resolve rule conflicts, calibrate group QDSS. |
+| ADMIN | Review expert credentials, manage global QDSS calibration, notify rule-conflict participants. Admins never edit or approve expert rules. |
 
-```bash
-$ pnpm install
-```
+## Stack
 
-## Compile and run the project
+Node.js, NestJS 11, Prisma 7 with the `pg` adapter, PostgreSQL, Passport JWT (session-bound access tokens, rotating refresh tokens), class-validator, Swagger, Helmet, `@nestjs/throttler`, `@nestjs/terminus`, `@nestjs/schedule`, Nodemailer.
 
-```bash
-# development
-$ pnpm run start
+## Module map (`src/`)
 
-# watch mode
-$ pnpm run start:dev
+| Folder | Responsibility |
+|---|---|
+| `auth/`, `user/` | Registration, login per role, sessions, email verification, password reset |
+| `common/` | Config validation, app setup, response envelope, exception filter, rate-limit guard, shared utils |
+| `mail/` | SMTP delivery and HTML templates (`mail/templates/*.html`, values are always HTML-escaped) |
+| `reference-data/` | DASS21/DASS42 catalogs and the reference seeder |
+| `expert/`, `expert-credentials/`, `expert-preferences/` | Expert profile, credential upload/review/expiry, DASS21 preferences |
+| `groups/` | Expert groups, invitations, leadership, eligibility, public listing |
+| `rules/`, `rule-conflicts/` | DASS42 rule authoring and conflict resolution workflow |
+| `qdss/` | QDSS math, datasets, GA calibration, pinned models |
+| `dass42-inference/` | Mamdani inference engine |
+| `screenings/` | Public QDSS/DASS42 screening endpoints (+ browser client in `client/`) |
+| `history/` | Encrypted history vault API (+ browser client in `client/`) |
+| `health/` | Liveness and readiness probes |
+| `prisma/` | Prisma service, schema (`models/*.prisma`) and migrations |
 
-# production mode
-$ pnpm run start:prod
-```
+## Prerequisites
 
-## Run tests
+- Node.js (current LTS) and pnpm
+- PostgreSQL for local development
+- An SMTP server or local sink (for example Mailpit) for verification and reset emails
 
-```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Setup
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+pnpm install
+cp .env.example .env          # then fill in the placeholders
+pnpm exec prisma generate
+pnpm exec prisma migrate deploy   # applies migrations to the database in DATABASE_URL
+pnpm seed:references          # DASS21/DASS42 reference catalogs
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+`.env` is git-ignored. Never commit real secrets. Configuration is validated at startup; an invalid key stops the app and is reported by name only.
 
-## Resources
+There is no public administrator registration. The first ADMIN account currently has to be created directly in the database by an operator; a dedicated CLI is planned.
 
-Check out a few resources that may come in handy when working with NestJS:
+## Run
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```bash
+pnpm start:dev      # watch mode on PORT (default 3000)
+pnpm build          # runs prisma generate, then nest build (copies mail templates)
+pnpm start:prod     # node dist/main
+```
 
-## Support
+Swagger UI is served at `/docs` outside production. `NODE_ENV=production` is deliberately rejected until the production deployment profile is approved.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Quality checks
 
-## Stay in touch
+```bash
+pnpm typecheck      # tsc --noEmit
+pnpm lint:check     # eslint without auto-fix
+pnpm lint           # eslint with --fix
+pnpm test           # all unit specs under src/
+pnpm exec jest -c test/jest-auth.config.cjs   # one feature suite (unit + isolated e2e)
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Feature suites: `test/jest-{api-foundation,api-security,auth,dass42-inference,expert-credentials,expert-preferences,expert-profile,groups,history,qdss,reference-data,rule-conflicts,rules,screenings}.config.cjs`. Tests use mocked or in-memory persistence; they never contact a real database, SMTP server or network.
+
+## Privacy rules for contributors
+
+- Never log, persist, cache or send to analytics any screening answer or result of a guest.
+- Never log credential numbers, documents, tokens, passwords or request bodies.
+- History content is encrypted on the client; the server must never hold a key that can decrypt it.
+- No screening-result notifications to third parties.
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+UNLICENSED — private project.
