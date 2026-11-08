@@ -1,5 +1,5 @@
 import { ConflictException, ServiceUnavailableException } from '@nestjs/common';
-import type { Prisma } from '../src/prisma/generated/client';
+import type { Prisma } from '../src/infrastructure/prisma/generated/client';
 import { groupUserId } from './groups-mocks';
 import {
 	inferenceFixture,

@@ -1,12 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import type { Prisma, Rule, RuleAudit } from '../src/prisma/generated/client';
-import { PrismaService } from '../src/prisma/prisma.service';
-import type { StoredRuleRevision } from '../src/rules/rules.service';
-import type { RuleContent } from '../src/rules/rules.types';
+import type {
+	Prisma,
+	Rule,
+	RuleAudit,
+} from '../src/infrastructure/prisma/generated/client';
+import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import type { StoredRuleRevision } from '../src/domain/rules/rules.service';
+import type { RuleContent } from '../src/domain/rules/rules.types';
 import {
 	REFERENCE_CONCLUSIONS,
 	CATALOG_VERSION,
-} from '../src/reference-data/catalogs/reference-metadata';
+} from '../src/domain/reference-data/catalogs/reference-metadata';
 import { createGroupsMocks } from './groups-mocks';
 import { storedQuestions } from './reference-data-mocks';
 import { createConflictMemory } from './conflict-memory';

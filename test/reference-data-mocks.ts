@@ -1,9 +1,9 @@
-import { DASS21_CATALOG } from '../src/reference-data/catalogs/dass21.catalog';
-import { DASS42_CATALOG } from '../src/reference-data/catalogs/dass42.catalog';
+import { DASS21_CATALOG } from '../src/domain/reference-data/catalogs/dass21.catalog';
+import { DASS42_CATALOG } from '../src/domain/reference-data/catalogs/dass42.catalog';
 import type {
 	Instrument,
 	StoredQuestion,
-} from '../src/reference-data/reference-data.types';
+} from '../src/domain/reference-data/reference-data.types';
 
 export function storedQuestions(instrument: Instrument): StoredQuestion[] {
 	const catalog = instrument === 'DASS21' ? DASS21_CATALOG : DASS42_CATALOG;

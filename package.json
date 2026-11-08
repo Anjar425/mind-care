@@ -21,7 +21,7 @@
 		"start:prod": "node dist/main",
 		"lint": "eslint \"{src,apps,libs,test,scripts}/**/*.ts\" --fix",
 		"lint:check": "eslint \"{src,test,scripts}/**/*.ts\"",
-		"typecheck": "tsc --noEmit -p tsconfig.json",
+		"typecheck": "tsc --noEmit -p tsconfig.json && tsc -p tsconfig.client-sdk.json",
 		"test": "jest",
 		"test:watch": "jest --watch",
 		"test:cov": "jest --coverage",
@@ -29,7 +29,7 @@
 		"test:e2e": "jest --testPathPatterns \"test/.*\\.e2e-spec\\.ts$\"",
 		"test:db": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-db.config.cjs --runInBand",
 		"db:migrate": "prisma migrate deploy",
-		"db:drift": "prisma migrate diff --from-migrations src/prisma/migrations --to-schema src/prisma --exit-code",
+		"db:drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema prisma --exit-code",
 		"seed:references": "pnpm build:seed && node dist/reference-seed/scripts/seed-reference-data.js",
 		"openapi:generate": "node scripts/generate-openapi.cjs",
 		"openapi:check": "pnpm build && pnpm openapi:generate && git diff --exit-code -- docs/openapi.json"

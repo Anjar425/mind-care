@@ -1,9 +1,10 @@
 import {
-	authTransaction,
+	withTransaction,
 	hasDatabaseCode,
-} from '../../src/auth/auth-transaction.util';
-import type { PrismaService } from '../../src/prisma/prisma.service';
+} from '../../src/infrastructure/prisma/transaction';
+import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { barrier, createPrisma, createUser, resetData } from './support';
+import { IDENTITY_TX } from '../../src/domain/identity/identity-persistence';
 
 // Every *Transaction helper in src/ relies on the pg driver adapter surfacing
 // PostgreSQL serialization failures (40001) as Prisma code P2034.
@@ -54,8 +55,10 @@ describe('Serializable conflicts on PostgreSQL', () => {
 		const user = await createUser(prisma, { name: 'x' });
 		const gate = barrier(2);
 		const run = (suffix: string) =>
-			authTransaction(prisma, (tx) =>
-				appendToName(tx, user.id, suffix, gate),
+			withTransaction(
+				prisma,
+				(tx) => appendToName(tx, user.id, suffix, gate),
+				IDENTITY_TX,
 			);
 
 		await expect(Promise.all([run('a'), run('b')])).resolves.toBeDefined();

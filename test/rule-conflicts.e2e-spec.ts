@@ -2,9 +2,9 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { createRulesHttp } from './rules-http';
 import { groupHeaders, httpData } from './groups-http';
 import { validRuleContent } from './rules-mocks';
-import type { RuleDetailDto } from '../src/rules/dto/rule-responses.dto';
-import type { RuleConflictsService } from '../src/rule-conflicts/rule-conflicts.service';
-import type { RuleResolutionService } from '../src/rule-conflicts/rule-resolution.service';
+import type { RuleDetailDto } from '../src/api/common/dto/rules/rule-responses.dto';
+import type { RuleConflictsService } from '../src/domain/rule-conflicts/rule-conflicts.service';
+import type { RuleResolutionService } from '../src/domain/rule-conflicts/rule-resolution.service';
 type Detail = Awaited<ReturnType<RuleConflictsService['detail']>>;
 type Plan = Awaited<ReturnType<RuleResolutionService['create']>>;
 describe('Conflict governance HTTP lifecycle (synthetic loopback)', () => {

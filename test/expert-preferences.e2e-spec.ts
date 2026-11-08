@@ -10,17 +10,17 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { Server } from 'node:http';
 import request from 'supertest';
-import { ExpertPreferencesController } from '../src/expert-preferences/expert-preferences.controller';
-import { ExpertPreferencesService } from '../src/expert-preferences/expert-preferences.service';
-import { ExpertPreferencesCompletenessService } from '../src/expert-preferences/expert-preferences-completeness.service';
-import { CredentialEligibilityService } from '../src/expert-credentials/credential-eligibility.service';
-import { ReferenceDataService } from '../src/reference-data/reference-data.service';
-import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../src/auth/guards/roles.guard';
-import { VerifiedEmailGuard } from '../src/auth/guards/verified-email.guard';
-import { ResponseInterceptor } from '../src/common/interceptor/response/response.interceptor';
-import { ApiRateLimitGuard } from '../src/common/guards/api-rate-limit.guard';
-import { setupApplication } from '../src/common/config/app.setup';
+import { ExpertPreferencesController } from '../src/api/expert/preferences/expert-preferences.controller';
+import { ExpertPreferencesService } from '../src/domain/preferences/expert-preferences.service';
+import { ExpertPreferencesCompletenessService } from '../src/domain/preferences/expert-preferences-completeness.service';
+import { CredentialEligibilityService } from '../src/domain/credentials/credential-eligibility.service';
+import { ReferenceDataService } from '../src/domain/reference-data/reference-data.service';
+import { JwtAuthGuard } from '../src/api/common/auth/jwt-auth.guard';
+import { RolesGuard } from '../src/api/common/auth/roles.guard';
+import { VerifiedEmailGuard } from '../src/api/common/auth/verified-email.guard';
+import { ResponseInterceptor } from '../src/api/common/interceptors/response.interceptor';
+import { ApiRateLimitGuard } from '../src/api/common/rate-limit/api-rate-limit.guard';
+import { setupApplication } from '../src/api/app.setup';
 import { runtimeConfigProvider, syntheticConfig } from './runtime-config.mock';
 import {
 	completePreferenceRows,
@@ -28,7 +28,7 @@ import {
 	validPreferencesSubmission,
 } from './expert-preferences-mocks';
 import { expertId, ownerId } from './credential-mocks';
-import type { PreferenceState } from '../src/expert-preferences/expert-preferences.types';
+import type { PreferenceState } from '../src/domain/preferences/preferences.types';
 
 describe('Expert preference HTTP (real services; synthetic auth and persistence)', () => {
 	let app: INestApplication<Server>;

@@ -1,7 +1,7 @@
 import type {
 	CredentialRevision,
 	Prisma,
-} from '../src/prisma/generated/client';
+} from '../src/infrastructure/prisma/generated/client';
 
 export const ownerId = '123e4567-e89b-42d3-a456-426614174001';
 export const expertId = '123e4567-e89b-42d3-a456-426614174002';

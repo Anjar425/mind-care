@@ -6,7 +6,7 @@ coverage
 test
 docs
 .private
-src/prisma/generated
+src/infrastructure/prisma/generated
 .env
 .env.*
 !.env.example

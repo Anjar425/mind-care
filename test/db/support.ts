@@ -1,8 +1,8 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import type { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../src/prisma/prisma.service';
-import type { RuntimeEnvironment } from '../../src/common/config/environment.config';
+import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
+import type { RuntimeEnvironment } from '../../src/infrastructure/config/environment.config';
 import { syntheticConfig } from '../runtime-config.mock';
 import { testDatabaseUrl } from './database-url';
 

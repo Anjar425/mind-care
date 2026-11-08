@@ -17,10 +17,10 @@ import { ApiProperty, DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { IsInt, IsString } from 'class-validator';
 import type { Server } from 'node:http';
 import request from 'supertest';
-import { ApiCommonResponse } from '@/common/decorator/api/api-common-response.decorator';
-import { MessageResponse } from '@/common/decorator/api/message-response.decorator';
-import { HttpExceptionFilter } from '@/common/filter/http-exception/http-exception.filter';
-import { ResponseInterceptor } from '@/common/interceptor/response/response.interceptor';
+import { ApiCommonResponse } from '@/api/common/swagger/api-common-response.decorator';
+import { MessageResponse } from '@/api/common/swagger/message-response.decorator';
+import { GlobalExceptionFilter } from '@/api/common/errors/global-exception.filter';
+import { ResponseInterceptor } from '@/api/common/interceptors/response.interceptor';
 
 class SampleDto {
 	@ApiProperty({
@@ -112,7 +112,7 @@ describe('Shared API HTTP contracts', () => {
 			}),
 		);
 		app.useGlobalInterceptors(module.get(ResponseInterceptor));
-		app.useGlobalFilters(new HttpExceptionFilter());
+		app.useGlobalFilters(new GlobalExceptionFilter());
 		await app.listen(0, '127.0.0.1');
 	});
 	afterEach(async () => {

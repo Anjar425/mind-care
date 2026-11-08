@@ -5,7 +5,7 @@ import type {
 	GroupTransferDto,
 	PrivateGroupDto,
 	PublicGroupDto,
-} from '../src/groups/dto/group-responses.dto';
+} from '../src/api/common/dto/groups/group-responses.dto';
 
 describe('Group lifecycle HTTP integration (synthetic auth/DB; real policies)', () => {
 	let h: Awaited<ReturnType<typeof createGroupsHttp>>;

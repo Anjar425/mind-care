@@ -1,11 +1,11 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { AuthSessionService } from '../../src/auth/auth-session.service';
-import { AuthService } from '../../src/auth/auth.service';
-import { UserService } from '../../src/user/user.service';
-import { UserRole } from '../../src/common/constant/role.constant';
-import type { MailService } from '../../src/mail/mail.service';
-import type { PrismaService } from '../../src/prisma/prisma.service';
+import { AuthSessionService } from '../../src/domain/identity/auth-session.service';
+import { AuthService } from '../../src/domain/identity/auth.service';
+import { UserService } from '../../src/domain/identity/user.service';
+import { UserRole } from '../../src/shared/types/role';
+import type { MailService } from '../../src/infrastructure/mail/mail.service';
+import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { createPrisma, createUser, dbConfig, resetData } from './support';
 
 describe('Auth sessions on PostgreSQL', () => {

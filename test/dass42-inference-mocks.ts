@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { conflictServices } from './rule-conflicts-fixture';
 import { groupUserId } from './groups-mocks';
-import { DASS42_CATALOG } from '../src/reference-data/catalogs/dass42.catalog';
-import type { CATEGORY, SEVERITY } from '../src/prisma/generated/enums';
-import type { RuleContent } from '../src/rules/rules.types';
-import type { Dass42Submission } from '../src/dass42-inference/dass42-inference.types';
-import { Dass42InferenceService } from '../src/dass42-inference/dass42-inference.service';
+import { DASS42_CATALOG } from '../src/domain/reference-data/catalogs/dass42.catalog';
+import type {
+	CATEGORY,
+	SEVERITY,
+} from '../src/infrastructure/prisma/generated/enums';
+import type { RuleContent } from '../src/domain/rules/rules.types';
+import type { Dass42Submission } from '../src/domain/dass42/dass42.types';
+import { Dass42InferenceService } from '../src/domain/dass42/dass42-inference.service';
 
 export function inferenceRule(
 	category: CATEGORY = 'DEPRESSION',

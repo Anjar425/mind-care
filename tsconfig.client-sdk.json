@@ -1,0 +1,12 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"lib": ["ES2023", "DOM"],
+		"types": [],
+		"strict": true,
+		"noEmit": true,
+		"incremental": false
+	},
+	"include": ["src/client-sdk/**/*.ts", "src/shared/contracts/**/*.ts"],
+	"exclude": ["**/*.spec.ts"]
+}

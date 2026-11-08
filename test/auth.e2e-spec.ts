@@ -5,7 +5,6 @@ import {
 	INestApplication,
 	Logger,
 	Req,
-	UseFilters,
 	UseGuards,
 	ValidationPipe,
 } from '@nestjs/common';
@@ -16,24 +15,28 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import request from 'supertest';
 import * as bcrypt from 'bcrypt';
 import type { Server } from 'node:http';
-import { AuthController } from '@/auth/auth.controller';
-import { AuthService } from '@/auth/auth.service';
-import { AuthSessionService } from '@/auth/auth-session.service';
-import { AuthExceptionFilter } from '@/auth/auth-exception.filter';
-import { JwtStrategy } from '@/auth/strategies/jwt.strategy';
-import { RefreshStrategy } from '@/auth/strategies/refresh.strategy';
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
-import { RefreshAuthGuard } from '@/auth/guards/refresh-auth.guard';
-import type { AccessPrincipal, SessionTokens } from '@/auth/session.types';
-import { UserService } from '@/user/user.service';
-import { PrismaService } from '@/prisma/prisma.service';
-import { MailService } from '@/mail/mail.service';
-import { UserRole } from '@/common/constant/role.constant';
-import { ResponseInterceptor } from '@/common/interceptor/response/response.interceptor';
+import { AuthController } from '@/api/public/auth/auth.controller';
+import { AuthService } from '@/domain/identity/auth.service';
+import { AuthSessionService } from '@/domain/identity/auth-session.service';
+import { ErrorPolicy } from '@/api/common/errors/error-policy.decorator';
+import { GlobalExceptionFilter } from '@/api/common/errors/global-exception.filter';
+import { JwtStrategy } from '@/api/common/auth/jwt.strategy';
+import { RefreshStrategy } from '@/api/common/auth/refresh.strategy';
+import { JwtAuthGuard } from '@/api/common/auth/jwt-auth.guard';
+import { RefreshAuthGuard } from '@/api/common/auth/refresh-auth.guard';
+import type {
+	AccessPrincipal,
+	SessionTokens,
+} from '@/domain/identity/identity.types';
+import { UserService } from '@/domain/identity/user.service';
+import { PrismaService } from '@/infrastructure/prisma/prisma.service';
+import { MailService } from '@/infrastructure/mail/mail.service';
+import { UserRole } from '@/shared/types/role';
+import { ResponseInterceptor } from '@/api/common/interceptors/response.interceptor';
 import { createAuthMemoryStore } from './auth-memory-store';
 
 @Controller('auth-test')
-@UseFilters(AuthExceptionFilter)
+@ErrorPolicy('auth')
 class ProtectedTestController {
 	@Get('me')
 	@UseGuards(JwtAuthGuard)
@@ -73,7 +76,6 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 				runtimeConfigProvider,
 				AuthService,
 				AuthSessionService,
-				AuthExceptionFilter,
 				UserService,
 				JwtStrategy,
 				RefreshStrategy,
@@ -95,6 +97,7 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 				forbidNonWhitelisted: true,
 			}),
 		);
+		app.useGlobalFilters(new GlobalExceptionFilter());
 		app.useGlobalInterceptors(module.get(ResponseInterceptor));
 		await app.init();
 		await app.listen(0, '127.0.0.1');

@@ -5,17 +5,16 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { TerminusModule } from '@nestjs/terminus';
 import type { Server } from 'node:http';
 import request from 'supertest';
-import { AuthController } from '@/auth/auth.controller';
-import { AuthService } from '@/auth/auth.service';
-import { AuthExceptionFilter } from '@/auth/auth-exception.filter';
-import { ApiRateLimitGuard } from '@/common/guards/api-rate-limit.guard';
-import { setupApplication } from '@/common/config/app.setup';
-import { setupSwagger } from '@/common/config/swagger/setup-swagger';
-import { ResponseInterceptor } from '@/common/interceptor/response/response.interceptor';
-import { HttpExceptionFilter } from '@/common/filter/http-exception/http-exception.filter';
-import { HealthController } from '@/health/health.controller';
-import { HealthService } from '@/health/health.service';
-import { PrismaService } from '@/prisma/prisma.service';
+import { AuthController } from '@/api/public/auth/auth.controller';
+import { AuthService } from '@/domain/identity/auth.service';
+import { ApiRateLimitGuard } from '@/api/common/rate-limit/api-rate-limit.guard';
+import { setupApplication } from '@/api/app.setup';
+import { setupSwagger } from '@/api/common/swagger/setup-swagger';
+import { ResponseInterceptor } from '@/api/common/interceptors/response.interceptor';
+import { GlobalExceptionFilter } from '@/api/common/errors/global-exception.filter';
+import { HealthController } from '@/api/health/health.controller';
+import { HealthService } from '@/api/health/health.service';
+import { PrismaService } from '@/infrastructure/prisma/prisma.service';
 import { runtimeConfigProvider, syntheticConfig } from './runtime-config.mock';
 
 @Controller('security-test')
@@ -43,7 +42,6 @@ describe('Local HTTP security (isolated database/mail)', () => {
 			providers: [
 				runtimeConfigProvider,
 				ResponseInterceptor,
-				AuthExceptionFilter,
 				HealthService,
 				{ provide: APP_GUARD, useClass: ApiRateLimitGuard },
 				{ provide: PrismaService, useValue: { $queryRaw: query } },
@@ -67,7 +65,7 @@ describe('Local HTTP security (isolated database/mail)', () => {
 		});
 		if (mode === 'production') {
 			// Exercise documentation registration independently: production bootstrap itself is gated.
-			app.useGlobalFilters(new HttpExceptionFilter());
+			app.useGlobalFilters(new GlobalExceptionFilter());
 			setupSwagger(app, mode);
 		} else
 			setupApplication(app, {

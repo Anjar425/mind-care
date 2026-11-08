@@ -1,11 +1,11 @@
-import { PrismaService } from '../src/prisma/prisma.service';
-import type { Prisma } from '../src/prisma/generated/client';
+import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import type { Prisma } from '../src/infrastructure/prisma/generated/client';
 import type {
 	StoredPreferenceVector,
 	ReplacePreferences,
-} from '../src/expert-preferences/expert-preferences.types';
-import { DASS21_CATALOG } from '../src/reference-data/catalogs/dass21.catalog';
-import { preferencesStateHash } from '../src/expert-preferences/preferences-state.util';
+} from '../src/domain/preferences/preferences.types';
+import { DASS21_CATALOG } from '../src/domain/reference-data/catalogs/dass21.catalog';
+import { preferencesStateHash } from '../src/domain/preferences/preferences-state.util';
 import { credentialExpert, ownerId } from './credential-mocks';
 import { storedQuestions } from './reference-data-mocks';
 

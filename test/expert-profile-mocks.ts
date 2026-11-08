@@ -1,7 +1,7 @@
 import { credentialExpert, credentialUser } from './credential-mocks';
-import type { StoredExpertProfile } from '../src/expert/expert-profile-completeness.service';
-import type { UpsertExpertProfileDto } from '../src/expert/dto/req/upsert-expert-profile.req.dto';
-import type { Prisma } from '../src/prisma/generated/client';
+import type { StoredExpertProfile } from '../src/domain/expert/expert-profile-completeness.service';
+import type { UpsertExpertProfileDto } from '../src/api/expert/profile/dto/req/upsert-expert-profile.req.dto';
+import type { Prisma } from '../src/infrastructure/prisma/generated/client';
 
 export const validProfileSubmission = (): UpsertExpertProfileDto => ({
 	expectedVersion: 0,

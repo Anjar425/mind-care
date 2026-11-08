@@ -6,9 +6,9 @@ import type {
 	GroupLeadershipTransfer,
 	GroupMembership,
 	Prisma,
-} from '../src/prisma/generated/client';
-import { PrismaService } from '../src/prisma/prisma.service';
-import type { EligibilityGroup } from '../src/groups/group-eligibility.service';
+} from '../src/infrastructure/prisma/generated/client';
+import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import type { EligibilityGroup } from '../src/domain/groups/group-eligibility.service';
 import { completePreferenceRows } from './expert-preferences-mocks';
 import { storedQuestions } from './reference-data-mocks';
 import { credentialExpert } from './credential-mocks';

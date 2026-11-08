@@ -1,5 +1,7 @@
-import type { StoredQuestion } from '../src/reference-data/reference-data.types';
-import type { StoredConclusion } from '../src/reference-data/reference-seed.types';
+import type {
+	StoredConclusion,
+	StoredQuestion,
+} from '../src/domain/reference-data/reference-data.types';
 
 export interface SeedState {
 	dASS21: StoredQuestion[];

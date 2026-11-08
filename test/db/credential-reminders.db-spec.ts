@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { Logger } from '@nestjs/common';
-import { CredentialMaintenanceService } from '../../src/expert-credentials/credential-maintenance.service';
-import type { CredentialStorageService } from '../../src/expert-credentials/credential-storage.service';
-import type { MailService } from '../../src/mail/mail.service';
-import type { PrismaService } from '../../src/prisma/prisma.service';
+import { CredentialMaintenanceJob } from '../../src/jobs/credential-maintenance.job';
+import type { CredentialStorageService } from '../../src/domain/credentials/credential-storage.service';
+import type { MailService } from '../../src/infrastructure/mail/mail.service';
+import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { createPrisma, createUser, dbConfig, resetData } from './support';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -54,7 +54,7 @@ describe('Credential expiry reminders on PostgreSQL', () => {
 	}
 
 	function maintenance(send: jest.Mock) {
-		return new CredentialMaintenanceService(
+		return new CredentialMaintenanceJob(
 			prisma,
 			{ sendCredentialExpiryReminder: send } as unknown as MailService,
 			storage,

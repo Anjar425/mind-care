@@ -1,6 +1,6 @@
-import { lockGroup } from '../../src/groups/group-persistence';
-import { lockConfiguration } from '../../src/qdss/qdss-persistence';
-import type { PrismaService } from '../../src/prisma/prisma.service';
+import { lockGroup } from '../../src/domain/groups/group-persistence';
+import { lockConfiguration } from '../../src/domain/qdss/qdss-persistence';
+import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { createPrisma, createUser, resetData, sleep } from './support';
 
 type Tx = Parameters<Parameters<PrismaService['$transaction']>[0]>[0];

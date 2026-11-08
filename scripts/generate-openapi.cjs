@@ -57,7 +57,7 @@ async function main() {
 	const { NestFactory } = require('@nestjs/core');
 	const { AppModule } = require(resolve(ROOT, 'dist', 'app.module.js'));
 	const { buildOpenApiDocument } = require(
-		resolve(ROOT, 'dist', 'common', 'config', 'swagger', 'setup-swagger.js'),
+		resolve(ROOT, 'dist', 'api', 'common', 'swagger', 'setup-swagger.js'),
 	);
 	const app = await NestFactory.create(AppModule, {
 		logger: false,

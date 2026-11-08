@@ -7,20 +7,19 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { Server } from 'node:http';
 import request from 'supertest';
-import { JwtStrategy } from '../src/auth/strategies/jwt.strategy';
-import { AuthSessionService } from '../src/auth/auth-session.service';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { ResponseInterceptor } from '../src/common/interceptor/response/response.interceptor';
-import { setupApplication } from '../src/common/config/app.setup';
-import { ApiRateLimitGuard } from '../src/common/guards/api-rate-limit.guard';
-import { ScreeningsController } from '../src/screenings/screenings.controller';
-import { ScreeningsService } from '../src/screenings/screenings.service';
-import { ScreeningPresentationService } from '../src/screenings/screening-presentation.service';
-import { OptionalScreeningAuthGuard } from '../src/screenings/optional-screening-auth.guard';
-import { ScreeningExceptionFilter } from '../src/screenings/screening-exception.filter';
-import { ReferenceDataService } from '../src/reference-data/reference-data.service';
-import { QdssEvaluationService } from '../src/qdss/qdss-evaluation.service';
-import { Dass42InferenceService } from '../src/dass42-inference/dass42-inference.service';
+import { JwtStrategy } from '../src/api/common/auth/jwt.strategy';
+import { AuthSessionService } from '../src/domain/identity/auth-session.service';
+import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import { ResponseInterceptor } from '../src/api/common/interceptors/response.interceptor';
+import { setupApplication } from '../src/api/app.setup';
+import { ApiRateLimitGuard } from '../src/api/common/rate-limit/api-rate-limit.guard';
+import { ScreeningsController } from '../src/api/public/screenings/screenings.controller';
+import { ScreeningsService } from '../src/domain/screening/screenings.service';
+import { ScreeningPresentationService } from '../src/domain/screening/screening-presentation.service';
+import { OptionalScreeningAuthGuard } from '../src/api/public/screenings/optional-screening-auth.guard';
+import { ReferenceDataService } from '../src/domain/reference-data/reference-data.service';
+import { QdssEvaluationService } from '../src/domain/qdss/qdss-evaluation.service';
+import { Dass42InferenceService } from '../src/domain/dass42/dass42-inference.service';
 import { runtimeConfigProvider, syntheticConfig } from './runtime-config.mock';
 import {
 	publicDass42Input,
@@ -49,7 +48,6 @@ describe('Public screening HTTP with real JWT/session and numerical services; sy
 				ScreeningsService,
 				ScreeningPresentationService,
 				OptionalScreeningAuthGuard,
-				ScreeningExceptionFilter,
 				AuthSessionService,
 				JwtStrategy,
 				ResponseInterceptor,

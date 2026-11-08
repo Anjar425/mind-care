@@ -20,23 +20,49 @@ Two independent screening systems:
 
 Node.js, NestJS 11, Prisma 7 with the `pg` adapter, PostgreSQL, Passport JWT (session-bound access tokens, rotating refresh tokens), class-validator, Swagger, Helmet, `@nestjs/throttler`, `@nestjs/terminus`, `@nestjs/schedule`, Nodemailer.
 
-## Module map (`src/`)
+## Source layout
 
-| Folder                                                  | Responsibility                                                                                    |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `auth/`, `user/`                                        | Registration, login per role, sessions, email verification, password reset                        |
-| `common/`                                               | Config validation, app setup, response envelope, exception filter, rate-limit guard, shared utils |
-| `mail/`                                                 | SMTP delivery and HTML templates (`mail/templates/*.html`, values are always HTML-escaped)        |
-| `reference-data/`                                       | DASS21/DASS42 catalogs and the reference seeder                                                   |
-| `expert/`, `expert-credentials/`, `expert-preferences/` | Expert profile, credential upload/review/expiry, DASS21 preferences                               |
-| `groups/`                                               | Expert groups, invitations, leadership, eligibility, public listing                               |
-| `rules/`, `rule-conflicts/`                             | DASS42 rule authoring and conflict resolution workflow                                            |
-| `qdss/`                                                 | QDSS math, datasets, GA calibration, pinned models                                                |
-| `dass42-inference/`                                     | Mamdani inference engine                                                                          |
-| `screenings/`                                           | Public QDSS/DASS42 screening endpoints (+ browser client in `client/`)                            |
-| `history/`                                              | Encrypted history vault API (+ browser client in `client/`)                                       |
-| `health/`                                               | Liveness and readiness probes                                                                     |
-| `prisma/`                                               | Prisma service, schema (`models/*.prisma`) and migrations                                         |
+```text
+src/
+  app.module.ts      composition root: api audiences + jobs + runtime config
+  api/               HTTP layer; one folder per audience, mirroring the URL tree
+    common/          guards and strategies (auth/), GlobalExceptionFilter + @ErrorPolicy (errors/),
+                     rate limit, privacy middleware, pipes, Swagger helpers, response interceptor,
+                     DTOs shared by several audiences (dto/<area>/)
+    public/          auth, references, public group listing, guest/account screenings
+    account/         the signed-in account's own data (encrypted history)
+    expert/          EXPERT routes: profile, credentials, preferences, groups (+ rules, conflicts, QDSS)
+    admin/           ADMIN routes: credential review, global QDSS, conflict oversight
+    health/          liveness and readiness probes
+  domain/            business logic per area; Nest modules with providers only, no controllers
+    identity/  reference-data/  credentials/  expert/  preferences/  groups/
+    rules/ (+ conflicts/)  rule-conflicts/  qdss/  dass42/  screening/  history/
+  jobs/              scheduled work (ScheduleModule is registered only here)
+  infrastructure/    config validation, Prisma (service, withTransaction, generated client), mail
+  shared/            framework-free code: wire contracts used by server and SDK, role enum, utils
+  client-sdk/        browser-only history/screening SDK; not part of the server build
+prisma/              schema.prisma, models/*.prisma, migrations/
+```
+
+Dependency rules, enforced by `pnpm lint:check` (`eslint.config.mjs`, specs are exempt); `src/domain/domain-dependencies.spec.ts` keeps the domain graph acyclic:
+
+| Layer            | May import                                                                     |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `api/<audience>` | `api/common`, `domain`, `infrastructure`, `shared`                             |
+| `api/common`     | `domain`, `infrastructure`, `shared` (never an audience)                       |
+| `domain`         | other domain folders (acyclic), `infrastructure`, `shared`                     |
+| `jobs`           | `domain`, `infrastructure`, `shared`                                           |
+| `infrastructure` | `shared`                                                                       |
+| `shared`         | nothing project-internal, no `@nestjs/*`                                       |
+| `client-sdk`     | `shared/contracts` only (checked with `tsconfig.client-sdk.json`, DOM, strict) |
+
+Conventions:
+
+- One controller class per `*.controller.ts`. Request/response classes are `*Dto` (queries `*Query`) in the audience's `dto/`, or in `api/common/dto/<area>/` when more than one audience uses them.
+- Each domain owns one `<domain>.types.ts`. Service inputs are domain interfaces (`*Input`, `*Filter`); HTTP DTOs `implements` them, so a DTO change that breaks a domain input fails to compile.
+- Transactions go through `withTransaction(prisma, work, policy)`; each domain keeps its policy (isolation, retries, 409/503 wording) next to its persistence helpers.
+- Error rendering is centralised in `GlobalExceptionFilter`; controllers that must redact (`auth`, `history`, `screening`) declare `@ErrorPolicy(...)`.
+- `test/app-composition.e2e-spec.ts` boots the real `AppModule` graph; `src/domain/domain-modules.spec.ts` and `src/api/api-modules.spec.ts` check module isolation and that each audience only serves its own paths.
 
 ## Prerequisites
 
@@ -66,7 +92,7 @@ There is no public administrator registration. The first ADMIN account currently
 
 ```bash
 pnpm start:dev      # watch mode on PORT (default 3000)
-pnpm build          # runs prisma generate, then nest build (copies mail templates)
+pnpm build          # runs prisma generate, then nest build (copies mail templates; excludes client-sdk)
 pnpm start:prod     # node dist/main
 ```
 
@@ -83,12 +109,12 @@ The `api` service reads `.env` (optional) and overrides `DATABASE_URL` and `MAIL
 ## Quality checks
 
 ```bash
-pnpm typecheck      # tsc --noEmit
+pnpm typecheck      # tsc --noEmit for the server, strict DOM check for client-sdk
 pnpm lint:check     # eslint without auto-fix
 pnpm format:check   # prettier --check
 pnpm test           # every unit and in-memory e2e spec (root jest.config.cjs)
 pnpm test:cov       # same with coverage in coverage/
-pnpm exec jest -c test/jest-auth.config.cjs   # one feature suite
+pnpm test -- src/domain/identity          # focus on one area (any path pattern)
 ```
 
 `pnpm test` never contacts a real database, SMTP server or network. On machines with little free memory (for example with Docker running) add `--maxWorkers=2`.
@@ -116,7 +142,7 @@ A value set in the shell overrides `.env` (PowerShell: `$env:DB_TEST_DATABASE_UR
 ### Migrations and API contract
 
 ```bash
-pnpm db:drift        # schema == migrations (uses SHADOW_DATABASE_URL)
+pnpm db:drift        # prisma/ schema == prisma/migrations (uses SHADOW_DATABASE_URL)
 pnpm openapi:check   # rebuilds and fails if docs/openapi.json is stale
 ```
 

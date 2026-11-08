@@ -1,4 +1,4 @@
-src/prisma/generated
+src/infrastructure/prisma/generated
 dist
 coverage
 pnpm-lock.yaml

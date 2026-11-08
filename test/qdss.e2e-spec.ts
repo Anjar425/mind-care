@@ -1,12 +1,12 @@
 import { createQdssHttp } from './qdss-http';
 import { groupHeaders, httpData } from './groups-http';
 import { qdssAdmin } from './qdss-mocks';
-import { SystemRandom } from '../src/qdss/math/ga';
+import { SystemRandom } from '../src/domain/qdss/math/ga';
 import type {
 	QdssDatasetResponseDto,
 	QdssModelResponseDto,
 	QdssRunResponseDto,
-} from '../src/qdss/dto/qdss.responses.dto';
+} from '../src/api/common/dto/qdss/qdss.responses.dto';
 describe('QDSS leader/admin/sample-member HTTP lifecycle', () => {
 	let h: Awaited<ReturnType<typeof createQdssHttp>>;
 	let groupId: number;

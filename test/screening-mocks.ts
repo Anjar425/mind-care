@@ -1,16 +1,16 @@
-import type { Prisma } from '../src/prisma/generated/client';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { ScreeningsService } from '../src/screenings/screenings.service';
-import { ScreeningPresentationService } from '../src/screenings/screening-presentation.service';
-import { ReferenceDataService } from '../src/reference-data/reference-data.service';
-import { QdssEvaluationService } from '../src/qdss/qdss-evaluation.service';
-import { Dass42InferenceService } from '../src/dass42-inference/dass42-inference.service';
+import type { Prisma } from '../src/infrastructure/prisma/generated/client';
+import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import { ScreeningsService } from '../src/domain/screening/screenings.service';
+import { ScreeningPresentationService } from '../src/domain/screening/screening-presentation.service';
+import { ReferenceDataService } from '../src/domain/reference-data/reference-data.service';
+import { QdssEvaluationService } from '../src/domain/qdss/qdss-evaluation.service';
+import { Dass42InferenceService } from '../src/domain/dass42/dass42-inference.service';
 import type {
 	Dass42Screening,
 	QdssScreening,
-} from '../src/screenings/screening.types';
-import { DASS21_CATALOG } from '../src/reference-data/catalogs/dass21.catalog';
-import { DASS42_CATALOG } from '../src/reference-data/catalogs/dass42.catalog';
+} from '../src/shared/contracts/screening';
+import { DASS21_CATALOG } from '../src/domain/reference-data/catalogs/dass21.catalog';
+import { DASS42_CATALOG } from '../src/domain/reference-data/catalogs/dass42.catalog';
 import { historyDocument, historyMocks, historyOwner } from './history-mocks';
 import { qdssAdmin, qdssFixture } from './qdss-mocks';
 import { inferenceFixture } from './dass42-inference-mocks';

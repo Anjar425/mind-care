@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import type { RuntimeEnvironment } from '../src/common/config/environment.config';
+import type { RuntimeEnvironment } from '../src/infrastructure/config/environment.config';
 
 export const syntheticConfig: RuntimeEnvironment = {
 	NODE_ENV: 'test',

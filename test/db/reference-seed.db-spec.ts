@@ -1,6 +1,6 @@
-import { ReferenceSeedService } from '../../src/reference-data/reference-seed.service';
-import { ReferenceSeedError } from '../../src/reference-data/reference-seed.types';
-import type { PrismaService } from '../../src/prisma/prisma.service';
+import { ReferenceSeedService } from '../../src/domain/reference-data/reference-seed.service';
+import { ReferenceSeedError } from '../../src/domain/reference-data/reference-data.types';
+import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { createPrisma, resetData } from './support';
 
 describe('Reference seeding on PostgreSQL', () => {

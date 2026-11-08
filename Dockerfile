@@ -35,6 +35,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 FROM deps AS build
 COPY tsconfig.json tsconfig.build.json tsconfig.reference-seed.json nest-cli.json prisma.config.ts ./
 COPY scripts ./scripts
+COPY prisma ./prisma
 COPY src ./src
 # prebuild runs `prisma generate`; nest build copies mail templates into dist.
 RUN pnpm build && pnpm build:seed
@@ -49,9 +50,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 FROM base AS migrator
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json pnpm-lock.yaml prisma.config.ts ./
-COPY src/prisma/schema.prisma ./src/prisma/schema.prisma
-COPY src/prisma/models ./src/prisma/models
-COPY src/prisma/migrations ./src/prisma/migrations
+COPY prisma ./prisma
 COPY --from=build /app/dist/reference-seed ./dist/reference-seed
 USER node
 # Call the Prisma CLI directly: no pnpm/corepack download at container start.

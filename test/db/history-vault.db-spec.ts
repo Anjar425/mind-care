@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { ConflictException } from '@nestjs/common';
-import { HistoryService } from '../../src/history/history.service';
-import { HistoryVaultService } from '../../src/history/history-vault.service';
-import type { PrismaService } from '../../src/prisma/prisma.service';
+import { HistoryService } from '../../src/domain/history/history.service';
+import { HistoryVaultService } from '../../src/domain/history/history-vault.service';
+import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { base64url, createPrisma, createUser, resetData } from './support';
 
 describe('Private history vault on PostgreSQL', () => {

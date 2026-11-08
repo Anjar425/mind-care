@@ -1,13 +1,13 @@
-import { HistoryService } from '../src/history/history.service';
-import { HistoryVaultService } from '../src/history/history-vault.service';
-import type { PrismaService } from '../src/prisma/prisma.service';
-import type { Prisma } from '../src/prisma/generated/client';
+import { HistoryService } from '../src/domain/history/history.service';
+import { HistoryVaultService } from '../src/domain/history/history-vault.service';
+import type { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import type { Prisma } from '../src/infrastructure/prisma/generated/client';
 import type {
 	HistoryEntry,
 	HistoryVault,
 	VaultInitialization,
-} from '../src/history/history.types';
-import type { HistoryDocument } from '../src/history/client/history-document';
+} from '../src/shared/contracts/history-envelope';
+import type { HistoryDocument } from '../src/shared/contracts/history-document';
 
 export const historyOwner = '10000000-0000-4000-8000-000000000001';
 export const historyOther = '10000000-0000-4000-8000-000000000002';

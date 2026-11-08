@@ -6,19 +6,19 @@ import type {
 	QdssReference,
 	QdssRun,
 	QdssAudit,
-} from '../src/prisma/generated/client';
-import { PrismaService } from '../src/prisma/prisma.service';
+} from '../src/infrastructure/prisma/generated/client';
+import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
 import { createGroupsMocks, groupUserId } from './groups-mocks';
-import { QdssSnapshotService } from '../src/qdss/qdss-snapshot.service';
-import { QdssCalibrationService } from '../src/qdss/qdss-calibration.service';
-import { QdssModelService } from '../src/qdss/qdss-model.service';
-import { QdssEvaluationService } from '../src/qdss/qdss-evaluation.service';
-import { GroupEligibilityService } from '../src/groups/group-eligibility.service';
-import { ExpertProfileCompletenessService } from '../src/expert/expert-profile-completeness.service';
-import { ReferenceDataService } from '../src/reference-data/reference-data.service';
-import { CredentialEligibilityService } from '../src/expert-credentials/credential-eligibility.service';
-import { QdssPageQuery } from '../src/qdss/dto/qdss.requests.dto';
-import { COPY_DEFAULTS } from '../src/qdss/qdss.defaults';
+import { QdssSnapshotService } from '../src/domain/qdss/qdss-snapshot.service';
+import { QdssCalibrationService } from '../src/domain/qdss/qdss-calibration.service';
+import { QdssModelService } from '../src/domain/qdss/qdss-model.service';
+import { QdssEvaluationService } from '../src/domain/qdss/qdss-evaluation.service';
+import { GroupEligibilityService } from '../src/domain/groups/group-eligibility.service';
+import { ExpertProfileCompletenessService } from '../src/domain/expert/expert-profile-completeness.service';
+import { ReferenceDataService } from '../src/domain/reference-data/reference-data.service';
+import { CredentialEligibilityService } from '../src/domain/credentials/credential-eligibility.service';
+import { QdssPageQuery } from '../src/api/common/dto/qdss/qdss.requests.dto';
+import { COPY_DEFAULTS } from '../src/domain/qdss/qdss.defaults';
 type Where = Record<string, unknown>;
 function matches(row: object, where: Where = {}): boolean {
 	return Object.entries(where).every(([key, value]) => {

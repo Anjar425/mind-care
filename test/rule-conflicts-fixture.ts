@@ -1,14 +1,14 @@
-import { RuleRevisionStore } from '../src/rules/rule-revision-store.service';
-import { RuleReferenceService } from '../src/rules/rule-reference.service';
-import { RulesService } from '../src/rules/rules.service';
-import { ReferenceDataService } from '../src/reference-data/reference-data.service';
-import { CredentialEligibilityService } from '../src/expert-credentials/credential-eligibility.service';
-import { RuleConflictCoreService } from '../src/rule-conflicts/rule-conflict-core.service';
-import { RuleResolutionService } from '../src/rule-conflicts/rule-resolution.service';
-import { RuleConflictsService } from '../src/rule-conflicts/rule-conflicts.service';
-import { Dass42RuleAssessmentService } from '../src/rule-conflicts/dass42-rule-assessment.service';
-import { GroupEligibilityService } from '../src/groups/group-eligibility.service';
-import { ExpertProfileCompletenessService } from '../src/expert/expert-profile-completeness.service';
+import { RuleRevisionStore } from '../src/domain/rules/rule-revision-store.service';
+import { RuleReferenceService } from '../src/domain/rules/rule-reference.service';
+import { RulesService } from '../src/domain/rules/rules.service';
+import { ReferenceDataService } from '../src/domain/reference-data/reference-data.service';
+import { CredentialEligibilityService } from '../src/domain/credentials/credential-eligibility.service';
+import { RuleConflictCoreService } from '../src/domain/rules/conflicts/rule-conflict-core.service';
+import { RuleResolutionService } from '../src/domain/rule-conflicts/rule-resolution.service';
+import { RuleConflictsService } from '../src/domain/rule-conflicts/rule-conflicts.service';
+import { Dass42RuleAssessmentService } from '../src/domain/rules/conflicts/dass42-rule-assessment.service';
+import { GroupEligibilityService } from '../src/domain/groups/group-eligibility.service';
+import { ExpertProfileCompletenessService } from '../src/domain/expert/expert-profile-completeness.service';
 import { groupUserId } from './groups-mocks';
 import { createRulesMocks, validRuleContent } from './rules-mocks';
 

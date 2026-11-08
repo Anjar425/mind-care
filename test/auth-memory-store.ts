@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { UserRole } from '@/common/constant/role.constant';
+import { UserRole } from '@/shared/types/role';
 
 interface TestUser {
 	id: string;

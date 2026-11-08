@@ -5,14 +5,15 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import request from 'supertest';
 import type { Server } from 'node:http';
-import { ReferenceDataModule } from '@/reference-data/reference-data.module';
-import { PrismaService } from '@/prisma/prisma.service';
-import { ResponseInterceptor } from '@/common/interceptor/response/response.interceptor';
-import { ApiRateLimitGuard } from '@/common/guards/api-rate-limit.guard';
-import { setupApplication } from '@/common/config/app.setup';
+import { ReferenceDataModule } from '@/domain/reference-data/reference-data.module';
+import { ReferenceDataController } from '@/api/public/references/reference-data.controller';
+import { PrismaService } from '@/infrastructure/prisma/prisma.service';
+import { ResponseInterceptor } from '@/api/common/interceptors/response.interceptor';
+import { ApiRateLimitGuard } from '@/api/common/rate-limit/api-rate-limit.guard';
+import { setupApplication } from '@/api/app.setup';
 import { createReferencePrismaMock } from './reference-data-mocks';
 import { runtimeConfigProvider, syntheticConfig } from './runtime-config.mock';
-import type { QuestionnaireResponseDto } from '@/reference-data/dto/questionnaire-response.dto';
+import type { QuestionnaireResponseDto } from '@/api/public/references/dto/questionnaire-response.dto';
 
 describe('Reference questionnaire HTTP (isolated database)', () => {
 	let app: INestApplication<Server>;
@@ -28,6 +29,7 @@ describe('Reference questionnaire HTTP (isolated database)', () => {
 				ReferenceDataModule,
 				ThrottlerModule.forRoot([{ ttl: 60000, limit: 120 }]),
 			],
+			controllers: [ReferenceDataController],
 			providers: [
 				runtimeConfigProvider,
 				ResponseInterceptor,

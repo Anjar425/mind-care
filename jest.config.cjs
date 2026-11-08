@@ -1,11 +1,9 @@
-// Canonical Jest entry point: every unit spec and isolated (in-memory) e2e spec.
-// Feature configs in test/jest-*.config.cjs remain for focused runs.
+// Single Jest entry point: every unit spec and isolated (in-memory) e2e spec.
+// Focus a run with a path pattern, e.g. `pnpm test -- src/domain/qdss`.
 // Real-PostgreSQL tests live in test/db and run only via test/jest-db.config.cjs.
-const base = require('./test/jest-screenings.config.cjs');
-
 module.exports = {
-	...base,
 	rootDir: '.',
+	testEnvironment: 'node',
 	testMatch: [
 		'<rootDir>/src/**/*.spec.ts',
 		'<rootDir>/test/**/*.e2e-spec.ts',
@@ -16,10 +14,20 @@ module.exports = {
 		'<rootDir>/test/db/',
 		'<rootDir>/dist/',
 	],
+	moduleNameMapper: {
+		'^@/(.*)$': '<rootDir>/src/$1',
+		'^(\\.{1,2}/.*)\\.js$': '$1',
+	},
+	setupFilesAfterEnv: ['<rootDir>/test/auth-test.setup.ts'],
+	transform: {
+		'^.+\\.ts$':['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }],
+	},
+	clearMocks: true,
+	cacheDirectory: '<rootDir>/node_modules/.cache/jest',
 	collectCoverageFrom: [
 		'src/**/*.ts',
 		'!src/**/*.spec.ts',
-		'!src/prisma/generated/**',
+		'!src/infrastructure/prisma/generated/**',
 		'!src/main.ts',
 	],
 	coverageDirectory: '<rootDir>/coverage',

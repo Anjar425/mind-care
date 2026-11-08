@@ -6,7 +6,7 @@ import type {
 	RuleRevisionDetailDto,
 	RuleRevisionsPageDto,
 	RulesPageDto,
-} from '../src/rules/dto/rule-responses.dto';
+} from '../src/api/common/dto/rules/rule-responses.dto';
 describe('DASS42 authoring lifecycle HTTP integration', () => {
 	let h: Awaited<ReturnType<typeof createRulesHttp>>;
 	beforeEach(async () => {

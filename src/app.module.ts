@@ -1,26 +1,20 @@
 import { Module } from '@nestjs/common';
-import { AuthModule } from './auth/auth.module';
-import { PrismaModule } from './prisma/prisma.module';
-import { ResponseInterceptor } from './common/interceptor/response/response.interceptor';
+import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { RuntimeConfigModule } from './common/config/runtime-config.module';
-import { ApiRateLimitGuard } from './common/guards/api-rate-limit.guard';
-import { HealthModule } from './health/health.module';
-import { ConfigService } from '@nestjs/config';
-import type { RuntimeEnvironment } from './common/config/environment.config';
-import { ReferenceDataModule } from './reference-data/reference-data.module';
-import { ExpertCredentialsModule } from './expert-credentials/expert-credentials.module';
-import { ExpertModule } from './expert/expert.module';
-import { ExpertPreferencesModule } from './expert-preferences/expert-preferences.module';
-import { GroupsModule } from './groups/groups.module';
-import { RulesModule } from './rules/rules.module';
-import { RuleConflictsModule } from './rule-conflicts/rule-conflicts.module';
-import { QdssModule } from './qdss/qdss.module';
-import { Dass42InferenceModule } from './dass42-inference/dass42-inference.module';
-import { HistoryModule } from './history/history.module';
-import { ScreeningsModule } from './screenings/screenings.module';
+import { AccountApiModule } from './api/account/account-api.module';
+import { AdminApiModule } from './api/admin/admin-api.module';
+import { ResponseInterceptor } from './api/common/interceptors/response.interceptor';
+import { ApiRateLimitGuard } from './api/common/rate-limit/api-rate-limit.guard';
+import { ExpertApiModule } from './api/expert/expert-api.module';
+import { HealthModule } from './api/health/health.module';
+import { PublicApiModule } from './api/public/public-api.module';
+import type { RuntimeEnvironment } from './infrastructure/config/environment.config';
+import { RuntimeConfigModule } from './infrastructure/config/runtime-config.module';
+import { JobsModule } from './jobs/jobs.module';
 
+// Composition root: HTTP audiences (api/*), background jobs and runtime configuration.
+// Domain and infrastructure modules are imported by the modules that use them.
 @Module({
 	imports: [
 		RuntimeConfigModule,
@@ -33,20 +27,12 @@ import { ScreeningsModule } from './screenings/screenings.module';
 				},
 			],
 		}),
-		AuthModule,
-		PrismaModule,
 		HealthModule,
-		ReferenceDataModule,
-		ExpertCredentialsModule,
-		ExpertModule,
-		ExpertPreferencesModule,
-		GroupsModule,
-		RulesModule,
-		RuleConflictsModule,
-		QdssModule,
-		Dass42InferenceModule,
-		HistoryModule,
-		ScreeningsModule,
+		PublicApiModule,
+		AccountApiModule,
+		ExpertApiModule,
+		AdminApiModule,
+		JobsModule,
 	],
 	providers: [
 		ResponseInterceptor,

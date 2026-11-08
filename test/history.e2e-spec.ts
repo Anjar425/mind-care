@@ -5,17 +5,16 @@ import { JwtModule, JwtService } from '@nestjs/jwt';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { Server } from 'node:http';
 import request from 'supertest';
-import { JwtStrategy } from '../src/auth/strategies/jwt.strategy';
-import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../src/auth/guards/roles.guard';
-import { AuthSessionService } from '../src/auth/auth-session.service';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { ResponseInterceptor } from '../src/common/interceptor/response/response.interceptor';
-import { setupApplication } from '../src/common/config/app.setup';
-import { HistoryController } from '../src/history/history.controller';
-import { HistoryService } from '../src/history/history.service';
-import { HistoryVaultService } from '../src/history/history-vault.service';
-import { HistoryExceptionFilter } from '../src/history/history-exception.filter';
+import { JwtStrategy } from '../src/api/common/auth/jwt.strategy';
+import { JwtAuthGuard } from '../src/api/common/auth/jwt-auth.guard';
+import { RolesGuard } from '../src/api/common/auth/roles.guard';
+import { AuthSessionService } from '../src/domain/identity/auth-session.service';
+import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import { ResponseInterceptor } from '../src/api/common/interceptors/response.interceptor';
+import { setupApplication } from '../src/api/app.setup';
+import { HistoryController } from '../src/api/account/history/history.controller';
+import { HistoryService } from '../src/domain/history/history.service';
+import { HistoryVaultService } from '../src/domain/history/history-vault.service';
 import {
 	historyEntryId,
 	historyEntryInput,
@@ -43,7 +42,6 @@ describe('Private history HTTP: actual JWT session guard and services, synthetic
 			providers: [
 				HistoryService,
 				HistoryVaultService,
-				HistoryExceptionFilter,
 				AuthSessionService,
 				JwtStrategy,
 				JwtAuthGuard,
