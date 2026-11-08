@@ -40,12 +40,13 @@ import {
 	SubmitCredentialDto,
 } from '../../common/dto/credentials/credential.dto';
 import { privateDocument } from '../../common/privacy/private-document';
+import { RateLimit } from '../../common/rate-limit/rate-limit.decorator';
 
 @ApiTags('Expert credentials')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('EXPERT')
-@Controller('expert/me/credentials')
+@Controller('expert/credentials')
 export class ExpertCredentialsController {
 	constructor(private readonly service: ExpertCredentialsService) {}
 	@Get()
@@ -62,6 +63,7 @@ export class ExpertCredentialsController {
 	}
 
 	@Post(':type')
+	@RateLimit('credential-upload')
 	@UseGuards(VerifiedEmailGuard)
 	@UseInterceptors(
 		FileInterceptor('file', {

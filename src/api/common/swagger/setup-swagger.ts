@@ -39,9 +39,9 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
 
 export function setupSwagger(
 	app: INestApplication,
-	environment: RuntimeEnvironment['NODE_ENV'],
+	mode: RuntimeEnvironment['SWAGGER_MODE'],
 ): void {
-	if (environment === 'production') return;
+	if (mode === 'off') return;
 	SwaggerModule.setup('docs', app, buildOpenApiDocument(app), {
 		swaggerOptions: {
 			defaultModelsExpandDepth: -1,

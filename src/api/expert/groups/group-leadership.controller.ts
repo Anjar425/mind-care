@@ -4,7 +4,6 @@ import {
 	Get,
 	HttpCode,
 	Param,
-	ParseIntPipe,
 	ParseUUIDPipe,
 	Post,
 	Query,
@@ -28,6 +27,7 @@ import {
 	GroupTransfersPageDto,
 } from '../../common/dto/groups/group-responses.dto';
 import { GroupResponse } from '../../common/dto/groups/group-api.decorator';
+import { PositiveIntIdPipe } from '../../common/pipes/positive-int-id.pipe';
 
 @ApiTags('Group leadership')
 @ApiBearerAuth()
@@ -44,12 +44,12 @@ export class GroupLeadershipController {
 	)
 	propose(
 		@Req() req: { user: AccessPrincipal },
-		@Param('groupId', ParseIntPipe) id: number,
+		@Param('groupId', PositiveIntIdPipe) id: number,
 		@Body() dto: TransferGroupDto,
 	) {
 		return this.groups.proposeTransfer(req.user.sub, id, dto);
 	}
-	@Get('me/group-leadership-transfers')
+	@Get('group-leadership-transfers')
 	@GroupResponse(GroupTransfersPageDto, 'Read your leadership transfer inbox')
 	inbox(@Req() req: { user: AccessPrincipal }, @Query() q: GroupPageQuery) {
 		return this.groups.transfers(req.user.sub, q);
@@ -61,12 +61,12 @@ export class GroupLeadershipController {
 	)
 	outbox(
 		@Req() req: { user: AccessPrincipal },
-		@Param('groupId', ParseIntPipe) id: number,
+		@Param('groupId', PositiveIntIdPipe) id: number,
 		@Query() q: GroupPageQuery,
 	) {
 		return this.groups.transfers(req.user.sub, q, id);
 	}
-	@Post('me/group-leadership-transfers/:transferId/accept')
+	@Post('group-leadership-transfers/:transferId/accept')
 	@HttpCode(200)
 	@GroupResponse(
 		GroupTransferDto,
@@ -80,7 +80,7 @@ export class GroupLeadershipController {
 		void _dto;
 		return this.groups.decideTransfer(req.user.sub, id, true);
 	}
-	@Post('me/group-leadership-transfers/:transferId/decline')
+	@Post('group-leadership-transfers/:transferId/decline')
 	@HttpCode(200)
 	@GroupResponse(GroupTransferDto, 'Decline an addressed leadership grant')
 	decline(
@@ -99,7 +99,7 @@ export class GroupLeadershipController {
 	)
 	revoke(
 		@Req() req: { user: AccessPrincipal },
-		@Param('groupId', ParseIntPipe) groupId: number,
+		@Param('groupId', PositiveIntIdPipe) groupId: number,
 		@Param('transferId', new ParseUUIDPipe()) id: string,
 		@Body() dto: GroupStateDto,
 	) {

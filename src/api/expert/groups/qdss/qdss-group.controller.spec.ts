@@ -22,16 +22,16 @@ describe('QDSS controller auth/validation/documentation boundary', () => {
 		jest.clearAllMocks();
 	});
 	it('should reject absent authentication, inappropriate roles and spoofed current database roles', async () => {
-		await h.api().get('/admin/qdss/global/model').expect(401);
+		await h.api().get('/api/v1/admin/qdss/global/model').expect(401);
 		await h
 			.api()
-			.post('/admin/qdss/global/initialize')
+			.post('/api/v1/admin/qdss/global/initialize')
 			.set(groupHeaders())
 			.send({})
 			.expect(403);
 		await h
 			.api()
-			.post('/admin/qdss/global/initialize')
+			.post('/api/v1/admin/qdss/global/initialize')
 			.set('x-test-role', 'ADMIN')
 			.set('x-test-user', groupUserId(1))
 			.send({})
@@ -42,13 +42,13 @@ describe('QDSS controller auth/validation/documentation boundary', () => {
 		expect(h.mocks.state.references).toHaveLength(0);
 		await h
 			.api()
-			.post('/admin/qdss/global/initialize')
+			.post('/api/v1/admin/qdss/global/initialize')
 			.set(admin)
 			.send({})
 			.expect(200);
 		const response = await h
 			.api()
-			.get('/expert/qdss/global/calibration')
+			.get('/api/v1/expert/qdss/global/calibration')
 			.set(groupHeaders(2))
 			.expect(200);
 		expect(response.headers['cache-control']).toBe('no-store');
@@ -57,20 +57,20 @@ describe('QDSS controller auth/validation/documentation boundary', () => {
 		);
 		await h
 			.api()
-			.get('/expert/qdss/global/calibration')
+			.get('/api/v1/expert/qdss/global/calibration')
 			.set(groupHeaders(6))
 			.expect(403);
 	});
 	it('should validate unknown fields, ID bounds and pagination before mutation', async () => {
 		await h
 			.api()
-			.post('/admin/qdss/global/initialize')
+			.post('/api/v1/admin/qdss/global/initialize')
 			.set(admin)
 			.send({ packs: [] })
 			.expect(400);
 		await h
 			.api()
-			.get('/expert/groups/0/qdss/model')
+			.get('/api/v1/expert/groups/0/qdss/model')
 			.set(groupHeaders())
 			.expect(400);
 		for (const query of [
@@ -81,12 +81,14 @@ describe('QDSS controller auth/validation/documentation boundary', () => {
 		])
 			await h
 				.api()
-				.get(`/expert/groups/${groupId}/qdss/calibration?${query}`)
+				.get(
+					`/api/v1/expert/groups/${groupId}/qdss/calibration?${query}`,
+				)
 				.set(groupHeaders())
 				.expect(400);
 		await h
 			.api()
-			.post(`/expert/groups/${groupId}/qdss/calibrations`)
+			.post(`/api/v1/expert/groups/${groupId}/qdss/calibrations`)
 			.set(groupHeaders())
 			.send({ expectedInputHash: 'invalid' })
 			.expect(400);

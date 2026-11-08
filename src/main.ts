@@ -12,6 +12,8 @@ async function bootstrap() {
 		setupApplication(app, {
 			NODE_ENV: config.get('NODE_ENV', { infer: true }),
 			CORS_ORIGIN: config.get('CORS_ORIGIN', { infer: true }),
+			SWAGGER_MODE: config.get('SWAGGER_MODE', { infer: true }),
+			TRUST_PROXY_HOPS: config.get('TRUST_PROXY_HOPS', { infer: true }),
 		});
 		await app.listen(config.get('PORT', { infer: true }));
 	} catch {

@@ -24,6 +24,9 @@ describe('Private history error redaction', () => {
 		expect(JSON.stringify(response.json.mock.calls)).not.toContain(
 			'sensitive',
 		);
+		expect(response.json).toHaveBeenCalledWith(
+			expect.objectContaining({ code: 'HISTORY_INVALID_REQUEST' }),
+		);
 		expect(response.setHeader).toHaveBeenCalledWith(
 			'Cache-Control',
 			'no-store',

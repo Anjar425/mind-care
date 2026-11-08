@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { GroupEligibilityService } from '../../../domain/groups/group-eligibility.service';
 import { PublicGroupQuery } from '../../common/dto/groups/group-requests.dto';
@@ -7,6 +7,7 @@ import {
 	PublicGroupsPageDto,
 } from '../../common/dto/groups/group-responses.dto';
 import { GroupResponse } from '../../common/dto/groups/group-api.decorator';
+import { PositiveIntIdPipe } from '../../common/pipes/positive-int-id.pipe';
 
 @ApiTags('Public groups')
 @Controller('groups/public')
@@ -29,7 +30,7 @@ export class PublicGroupsController {
 		false,
 		true,
 	)
-	detail(@Param('groupId', ParseIntPipe) id: number) {
+	detail(@Param('groupId', PositiveIntIdPipe) id: number) {
 		return this.eligibility.publicDetail(id);
 	}
 }

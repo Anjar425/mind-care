@@ -14,7 +14,8 @@ export interface RuntimeEnvironment {
 	MAIL_FROM: string;
 	VERIFICATION_TOKEN_EXPIRY_MINUTES: number;
 	RESET_TOKEN_EXPIRY_MINUTES: number;
-	CORS_ORIGIN: string;
+	// Browser origins allowed by CORS (comma list). Empty: CORS off, same-origin deployment.
+	CORS_ORIGIN: string[];
 	RATE_LIMIT_WINDOW_MS: number;
 	RATE_LIMIT_GENERAL: number;
 	RATE_LIMIT_LOGIN: number;
@@ -32,6 +33,15 @@ export interface RuntimeEnvironment {
 	CREDENTIAL_UPLOAD_RATE_LIMIT: number;
 	CREDENTIAL_REMINDER_LEAD_DAYS: number;
 	CREDENTIAL_REMINDER_HOUR: number;
+	// Reverse proxies in front of the API whose X-Forwarded-For is trusted (0 = none).
+	TRUST_PROXY_HOPS: number;
+	// 'public' serves /docs; 'off' disables it. Default: off in production.
+	SWAGGER_MODE: 'public' | 'off';
+	ACCESS_TOKEN_TTL_SECONDS: number;
+	SESSION_TTL_DAYS: number;
+	DB_POOL_MAX: number;
+	// Also bounds how long a transaction may sit idle while holding locks.
+	DB_STATEMENT_TIMEOUT_MS: number;
 }
 
 // Errors identify settings, never their submitted values.
@@ -67,6 +77,23 @@ export function validateEnvironment(
 			invalid.add(key);
 		return value;
 	}
+	function bounded(
+		key: string,
+		fallback: number,
+		min: number,
+		max: number,
+	): number {
+		const value = raw[key] === undefined ? fallback : Number(raw[key]);
+		if (
+			(raw[key] !== undefined &&
+				(typeof raw[key] !== 'string' || !/^\d+$/.test(raw[key]))) ||
+			!Number.isSafeInteger(value) ||
+			value < min ||
+			value > max
+		)
+			invalid.add(key);
+		return value;
+	}
 	function url(key: string, protocols: string[]): string {
 		const value = text(key);
 		try {
@@ -86,6 +113,43 @@ export function validateEnvironment(
 		}
 		return value;
 	}
+	// Comma-separated bare origins. Unset: the frontend origin outside production and no CORS
+	// (same-origin deployment) in production. An explicitly empty value disables CORS.
+	function origins(
+		key: string,
+		frontend: string,
+		production: boolean,
+	): string[] {
+		const value = raw[key];
+		if (value === undefined) {
+			if (production || !frontend) return [];
+			try {
+				return [new URL(frontend).origin];
+			} catch {
+				return [];
+			}
+		}
+		if (typeof value !== 'string' || /[\r\n\0]/.test(value)) {
+			invalid.add(key);
+			return [];
+		}
+		const list = value
+			.split(',')
+			.map((entry) => entry.trim())
+			.filter(Boolean);
+		for (const entry of list)
+			try {
+				const parsed = new URL(entry);
+				if (
+					!['http:', 'https:'].includes(parsed.protocol) ||
+					parsed.origin !== entry
+				)
+					invalid.add(key);
+			} catch {
+				invalid.add(key);
+			}
+		return [...new Set(list)];
+	}
 	const mode = raw.NODE_ENV ?? 'development';
 	if (mode !== 'development' && mode !== 'test' && mode !== 'production')
 		invalid.add('NODE_ENV');
@@ -96,13 +160,14 @@ export function validateEnvironment(
 		invalid.add('JWT_REFRESH_SECRET');
 	const secure = raw.MAIL_SECURE ?? 'false';
 	if (secure !== 'true' && secure !== 'false') invalid.add('MAIL_SECURE');
-	const corsOrigin = url('CORS_ORIGIN', ['http:', 'https:']);
-	try {
-		if (new URL(corsOrigin).origin !== corsOrigin)
-			invalid.add('CORS_ORIGIN');
-	} catch {
-		invalid.add('CORS_ORIGIN');
-	}
+	const production = mode === 'production';
+	const frontendUrl = url('FRONTEND_URL', ['http:', 'https:']).replace(
+		/\/$/,
+		'',
+	);
+	const corsOrigins = origins('CORS_ORIGIN', frontendUrl, production);
+	const swagger = raw.SWAGGER_MODE ?? (production ? 'off' : 'public');
+	if (swagger !== 'public' && swagger !== 'off') invalid.add('SWAGGER_MODE');
 	const config: RuntimeEnvironment = {
 		NODE_ENV: mode as RuntimeEnvironment['NODE_ENV'],
 		CREDENTIAL_STORAGE_ROOT: text('CREDENTIAL_STORAGE_ROOT'),
@@ -128,10 +193,7 @@ export function validateEnvironment(
 		DATABASE_URL: url('DATABASE_URL', ['postgres:', 'postgresql:']),
 		JWT_ACCESS_SECRET: access,
 		JWT_REFRESH_SECRET: refresh,
-		FRONTEND_URL: url('FRONTEND_URL', ['http:', 'https:']).replace(
-			/\/$/,
-			'',
-		),
+		FRONTEND_URL: frontendUrl,
 		MAIL_HOST: text('MAIL_HOST'),
 		MAIL_PORT: integer('MAIL_PORT', 587, 65535),
 		MAIL_SECURE: secure === 'true',
@@ -148,7 +210,7 @@ export function validateEnvironment(
 			15,
 			Math.floor((8.64e15 - Date.now()) / 60000),
 		),
-		CORS_ORIGIN: corsOrigin,
+		CORS_ORIGIN: corsOrigins,
 		RATE_LIMIT_WINDOW_MS: integer(
 			'RATE_LIMIT_WINDOW_MS',
 			undefined,
@@ -199,6 +261,22 @@ export function validateEnvironment(
 			5,
 			Number.MAX_SAFE_INTEGER,
 		),
+		TRUST_PROXY_HOPS: bounded('TRUST_PROXY_HOPS', 0, 0, 3),
+		SWAGGER_MODE: swagger as RuntimeEnvironment['SWAGGER_MODE'],
+		ACCESS_TOKEN_TTL_SECONDS: bounded(
+			'ACCESS_TOKEN_TTL_SECONDS',
+			900,
+			300,
+			3600,
+		),
+		SESSION_TTL_DAYS: bounded('SESSION_TTL_DAYS', 7, 1, 30),
+		DB_POOL_MAX: bounded('DB_POOL_MAX', 10, 1, 50),
+		DB_STATEMENT_TIMEOUT_MS: bounded(
+			'DB_STATEMENT_TIMEOUT_MS',
+			15000,
+			1000,
+			60000,
+		),
 	};
 	for (const key of [
 		'CREDENTIAL_ENCRYPTION_KEY',
@@ -213,11 +291,14 @@ export function validateEnvironment(
 		invalid.add('CREDENTIAL_LOOKUP_KEY');
 	if (!/^\.private\/[a-zA-Z0-9_-]+$/.test(config.CREDENTIAL_STORAGE_ROOT))
 		invalid.add('CREDENTIAL_STORAGE_ROOT');
+	// Production serves real users over TLS: links and allowed origins must be https.
+	if (production && !config.FRONTEND_URL.startsWith('https://'))
+		invalid.add('FRONTEND_URL');
+	if (production && config.CORS_ORIGIN.some((o) => !o.startsWith('https://')))
+		invalid.add('CORS_ORIGIN');
 	if (invalid.size)
 		throw new Error(
 			`Invalid configuration: ${[...invalid].sort().join(', ')}`,
 		);
-	if (config.NODE_ENV === 'production')
-		throw new Error('Production runtime policy is pending approval');
 	return config;
 }

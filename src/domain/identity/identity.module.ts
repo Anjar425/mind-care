@@ -16,7 +16,11 @@ import { UserService } from './user.service';
 			inject: [ConfigService],
 			useFactory: (config: ConfigService<RuntimeEnvironment, true>) => ({
 				secret: config.get('JWT_ACCESS_SECRET', { infer: true }),
-				signOptions: { expiresIn: '15m' },
+				signOptions: {
+					expiresIn: config.get('ACCESS_TOKEN_TTL_SECONDS', {
+						infer: true,
+					}),
+				},
 			}),
 		}),
 	],

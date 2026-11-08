@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { setupApplication } from './app.setup';
+import { setupApplication, type ApplicationSettings } from './app.setup';
 import { setupSwagger } from './common/swagger/setup-swagger';
 import { screeningPrivacyMiddleware } from './common/privacy/screening-privacy.middleware';
 
@@ -7,25 +7,41 @@ jest.mock('./common/swagger/setup-swagger', () => ({
 	setupSwagger: jest.fn(),
 }));
 
+const DEVELOPMENT: ApplicationSettings = {
+	NODE_ENV: 'development',
+	CORS_ORIGIN: ['http://localhost:5173'],
+	SWAGGER_MODE: 'public',
+	TRUST_PROXY_HOPS: 0,
+};
+const PRODUCTION: ApplicationSettings = {
+	NODE_ENV: 'production',
+	CORS_ORIGIN: [],
+	SWAGGER_MODE: 'off',
+	TRUST_PROXY_HOPS: 1,
+};
+
 describe('setupApplication', () => {
+	const express = { set: jest.fn() };
 	const mock = {
 		use: jest.fn(),
+		setGlobalPrefix: jest.fn(),
+		enableVersioning: jest.fn(),
 		enableCors: jest.fn(),
 		get: jest.fn(),
+		getHttpAdapter: () => ({ getInstance: () => express }),
 		useGlobalInterceptors: jest.fn(),
 		useGlobalFilters: jest.fn(),
 		useGlobalPipes: jest.fn(),
 		enableShutdownHooks: jest.fn(),
 	};
+	const app = mock as unknown as INestApplication;
 	afterEach(() => jest.clearAllMocks());
+
 	it('should configure shutdown hooks and local middleware when development starts', () => {
-		setupApplication(mock as unknown as INestApplication, {
-			NODE_ENV: 'development',
-			CORS_ORIGIN: 'http://localhost:5173',
-		});
+		setupApplication(app, DEVELOPMENT);
 		expect(mock.enableShutdownHooks).toHaveBeenCalledTimes(1);
 		expect(mock.use).toHaveBeenCalledWith(
-			'/screenings',
+			'/api/v1/screenings',
 			screeningPrivacyMiddleware,
 		);
 		expect(mock.enableCors).toHaveBeenCalledWith(
@@ -34,24 +50,26 @@ describe('setupApplication', () => {
 				credentials: false,
 			}),
 		);
-		expect(setupSwagger).toHaveBeenCalledWith(mock, 'development');
+		expect(express.set).not.toHaveBeenCalled();
+		expect(setupSwagger).toHaveBeenCalledWith(mock, 'public');
 	});
-	it('should prevent local policy from being used when production settings are undecided', () => {
-		expect(() =>
-			setupApplication(mock as unknown as INestApplication, {
-				NODE_ENV: 'production',
-				CORS_ORIGIN: 'http://localhost:5173',
-			}),
-		).toThrow('Production runtime policy');
-		expect(mock.use).not.toHaveBeenCalled();
+
+	it('should start in production with same-origin, one trusted proxy and Swagger off', () => {
+		expect(() => setupApplication(app, PRODUCTION)).not.toThrow();
+		expect(mock.enableCors).not.toHaveBeenCalled();
+		expect(express.set).toHaveBeenCalledWith('trust proxy', 1);
+		expect(setupSwagger).toHaveBeenCalledWith(mock, 'off');
 	});
-	it('should use the validated origin when the operator configures another local frontend', () => {
-		setupApplication(mock as unknown as INestApplication, {
-			NODE_ENV: 'test',
-			CORS_ORIGIN: 'http://localhost:5180',
+
+	it('should allow every configured origin when several frontends are listed', () => {
+		setupApplication(app, {
+			...DEVELOPMENT,
+			CORS_ORIGIN: ['http://localhost:5180', 'https://app.example.test'],
 		});
 		expect(mock.enableCors).toHaveBeenCalledWith(
-			expect.objectContaining({ origin: ['http://localhost:5180'] }),
+			expect.objectContaining({
+				origin: ['http://localhost:5180', 'https://app.example.test'],
+			}),
 		);
 	});
 });

@@ -55,10 +55,76 @@ describe('validateEnvironment', () => {
 			}).FRONTEND_URL,
 		).toBe('https://app.example.test');
 	});
-	it('should gate production startup when its runtime policy has not been approved', () => {
+	const production = () => {
+		const rest: Record<string, string> = valid();
+		delete rest.CORS_ORIGIN;
+		return {
+			...rest,
+			NODE_ENV: 'production',
+			FRONTEND_URL: 'https://mindcare.example.test',
+		};
+	};
+	it('should start production as a same-origin deployment with Swagger off by default', () => {
+		const config = validateEnvironment(production());
+		expect(config).toEqual(
+			expect.objectContaining({
+				NODE_ENV: 'production',
+				CORS_ORIGIN: [],
+				SWAGGER_MODE: 'off',
+				TRUST_PROXY_HOPS: 0,
+			}),
+		);
+		expect(
+			validateEnvironment({ ...production(), TRUST_PROXY_HOPS: '1' })
+				.TRUST_PROXY_HOPS,
+		).toBe(1);
+	});
+	it('should require https links and origins in production', () => {
 		expect(() =>
-			validateEnvironment({ ...valid(), NODE_ENV: 'production' }),
-		).toThrow('Production runtime policy is pending approval');
+			validateEnvironment({
+				...production(),
+				FRONTEND_URL: 'http://mindcare.example.test',
+			}),
+		).toThrow('FRONTEND_URL');
+		expect(() =>
+			validateEnvironment({
+				...production(),
+				CORS_ORIGIN: 'http://app.example.test',
+			}),
+		).toThrow('CORS_ORIGIN');
+		expect(
+			validateEnvironment({
+				...production(),
+				CORS_ORIGIN: 'https://app.example.test',
+			}).CORS_ORIGIN,
+		).toEqual(['https://app.example.test']);
+	});
+	it('should default CORS to the frontend origin outside production and accept a list', () => {
+		const rest: Record<string, string> = valid();
+		delete rest.CORS_ORIGIN;
+		expect(validateEnvironment(rest).CORS_ORIGIN).toEqual([
+			'http://localhost:5173',
+		]);
+		expect(
+			validateEnvironment({
+				...valid(),
+				CORS_ORIGIN: 'http://localhost:5173, https://app.example.test',
+			}).CORS_ORIGIN,
+		).toEqual(['http://localhost:5173', 'https://app.example.test']);
+		expect(
+			validateEnvironment({ ...valid(), CORS_ORIGIN: '' }).CORS_ORIGIN,
+		).toEqual([]);
+	});
+	it('should apply runtime defaults for tokens, sessions and the database pool', () => {
+		expect(validateEnvironment(valid())).toEqual(
+			expect.objectContaining({
+				SWAGGER_MODE: 'public',
+				ACCESS_TOKEN_TTL_SECONDS: 900,
+				SESSION_TTL_DAYS: 7,
+				DB_POOL_MAX: 10,
+				DB_STATEMENT_TIMEOUT_MS: 15000,
+			}),
+		);
 	});
 	it('should return typed settings when valid host configuration is supplied', () => {
 		expect(validateEnvironment(valid())).toEqual(
@@ -111,6 +177,18 @@ describe('validateEnvironment', () => {
 		['CREDENTIAL_UPLOAD_RATE_LIMIT', '0'],
 		['CREDENTIAL_REMINDER_LEAD_DAYS', '31'],
 		['CREDENTIAL_REMINDER_HOUR', '24'],
+		['TRUST_PROXY_HOPS', '4'],
+		['TRUST_PROXY_HOPS', '-1'],
+		['SWAGGER_MODE', 'private'],
+		['ACCESS_TOKEN_TTL_SECONDS', '299'],
+		['ACCESS_TOKEN_TTL_SECONDS', '3601'],
+		['SESSION_TTL_DAYS', '0'],
+		['SESSION_TTL_DAYS', '31'],
+		['DB_POOL_MAX', '0'],
+		['DB_POOL_MAX', '51'],
+		['DB_STATEMENT_TIMEOUT_MS', '999'],
+		['DB_STATEMENT_TIMEOUT_MS', '60001'],
+		['CORS_ORIGIN', 'http://localhost:5173,not-an-origin'],
 	])(
 		'should reject %s when its configured format is invalid (%s)',
 		(key, value) => {

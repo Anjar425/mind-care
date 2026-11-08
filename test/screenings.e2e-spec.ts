@@ -89,7 +89,7 @@ describe('Public screening HTTP with real JWT/session and numerical services; sy
 	};
 	const post = (engine: string, body: unknown) =>
 		api()
-			.post('/screenings/' + engine)
+			.post('/api/v1/screenings/' + engine)
 			.send(body as object);
 	it('should allow guest GLOBAL/GROUP QDSS and GROUP DASS42 without changing calibration or rules', async () => {
 		const before = JSON.stringify({
@@ -177,18 +177,29 @@ describe('Public screening HTTP with real JWT/session and numerical services; sy
 		await post('dass42', publicDass42Input()).expect(404);
 	});
 	it('should bound and redact malformed, oversized and compressed requests before parsing', async () => {
-		for (const [body, status, encoding] of [
-			[JSON.stringify({ private: 'x'.repeat(17000) }), 413, 'identity'],
-			['{"private answer":', 400, 'identity'],
-			['{}', 415, 'gzip'],
+		for (const [body, status, encoding, code] of [
+			[
+				JSON.stringify({ private: 'x'.repeat(17000) }),
+				413,
+				'identity',
+				'SCREENING_TOO_LARGE',
+			],
+			[
+				'{"private answer":',
+				400,
+				'identity',
+				'SCREENING_INVALID_REQUEST',
+			],
+			['{}', 415, 'gzip', 'UNSUPPORTED_MEDIA_TYPE'],
 		] as const) {
 			const r = await api()
-				.post('/screenings/qdss')
+				.post('/api/v1/screenings/qdss')
 				.set('Content-Type', 'application/json')
 				.set('Content-Encoding', encoding)
 				.send(body)
 				.expect(status);
 			expect(r.headers['cache-control']).toBe('no-store');
+			expect(r.body).toHaveProperty('code', code);
 			expect(JSON.stringify(r.body)).not.toContain('private answer');
 		}
 	});
@@ -196,7 +207,7 @@ describe('Public screening HTTP with real JWT/session and numerical services; sy
 		for (let i = 0; i < 10; i++)
 			await post('qdss', publicQdssInput()).expect(200);
 		const q = await api()
-			.post('/SCREENINGS/QDSS/')
+			.post('/api/v1/SCREENINGS/QDSS/')
 			.send(publicQdssInput())
 			.expect(429);
 		expect(q.headers['retry-after']).toBeDefined();
@@ -212,7 +223,10 @@ describe('Public screening HTTP with real JWT/session and numerical services; sy
 				.addBearerAuth(undefined, 'access-token')
 				.build(),
 		);
-		for (const path of ['/screenings/qdss', '/screenings/dass42']) {
+		for (const path of [
+			'/api/v1/screenings/qdss',
+			'/api/v1/screenings/dass42',
+		]) {
 			const op = doc.paths[path].post!;
 			expect(op.security).toEqual([{}, { 'access-token': [] }]);
 			expect(op.responses).toHaveProperty('200');

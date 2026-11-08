@@ -15,6 +15,7 @@ import type { HistoryDeviceStore } from './history-device-store';
 import { historySeries } from '../../shared/contracts/history-document';
 import { validateHistoryDocument } from '../../shared/contracts/history-document';
 import type { HistoryDocument } from '../../shared/contracts/history-document';
+import { API_BASE_PATH } from '../../shared/contracts/api';
 
 export interface ClientVault {
 	id: string;
@@ -62,12 +63,18 @@ export interface HistoryApiRequest {
 	): Promise<{ data: T }>;
 }
 // Frontend supplies its authenticated HTTP client; SDK never stores bearer tokens.
-export function historyTransport(request: HistoryApiRequest): HistoryTransport {
+// basePath: API root seen by that client (default /api/v1; empty when the client adds it).
+export function historyTransport(
+	request: HistoryApiRequest,
+	basePath: string = API_BASE_PATH,
+): HistoryTransport {
 	const send = async <T>(
 		method: 'GET' | 'POST' | 'PUT' | 'DELETE',
 		path: string,
 		body?: unknown,
-	) => (await request<T>(method, `/me/history${path}`, body)).data;
+	) =>
+		(await request<T>(method, `${basePath}/account/history${path}`, body))
+			.data;
 	return {
 		vault: () => send<ClientVault>('GET', '/vault'),
 		initialize: (input) => send<ClientVault>('POST', '/vault', input),

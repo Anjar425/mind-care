@@ -59,7 +59,9 @@ describe('Reference questionnaire HTTP (isolated database)', () => {
 	] as const)(
 		'should expose the complete public %s questionnaire when storage matches its release',
 		async (path, instrument, count) => {
-			const response = await api().get(`/references/${path}`).expect(200);
+			const response = await api()
+				.get(`/api/v1/references/${path}`)
+				.expect(200);
 			const body = response.body as {
 				statusCode: number;
 				message: string;
@@ -93,9 +95,12 @@ describe('Reference questionnaire HTTP (isolated database)', () => {
 		async (path) => {
 			const delegate = path === 'dass21' ? prisma.dASS21 : prisma.dASS42;
 			delegate.findMany.mockResolvedValue([]);
-			const response = await api().get(`/references/${path}`).expect(503);
+			const response = await api()
+				.get(`/api/v1/references/${path}`)
+				.expect(503);
 			expect(response.body).toEqual({
 				statusCode: 503,
+				code: 'UNAVAILABLE',
 				message: ['Internal server error'],
 				error: 'Service Unavailable',
 			});
@@ -106,7 +111,9 @@ describe('Reference questionnaire HTTP (isolated database)', () => {
 		prisma.dASS21.findMany.mockRejectedValue(
 			new Error('PRIVATE_DATABASE_SCHEMA_OR_CONNECTION'),
 		);
-		const response = await api().get('/references/dass21').expect(503);
+		const response = await api()
+			.get('/api/v1/references/dass21')
+			.expect(503);
 		expect(JSON.stringify(response.body)).not.toContain('PRIVATE_DATABASE');
 		expect(JSON.stringify(errors.mock.calls)).not.toContain(
 			'PRIVATE_DATABASE',
@@ -116,16 +123,19 @@ describe('Reference questionnaire HTTP (isolated database)', () => {
 		const rows = await prisma.dASS42.findMany({});
 		rows[0].text = 'unapproved change';
 		prisma.dASS42.findMany.mockResolvedValue(rows);
-		await api().get('/references/dass42').expect(503);
+		await api().get('/api/v1/references/dass42').expect(503);
 	});
 	it('should apply the existing shared quota when callers alternate questionnaire endpoints', async () => {
 		for (let i = 0; i < 120; i++)
 			await api()
-				.get(`/references/${i % 2 ? 'dass21' : 'dass42'}`)
+				.get(`/api/v1/references/${i % 2 ? 'dass21' : 'dass42'}`)
 				.expect(200);
-		const response = await api().get('/references/dass21').expect(429);
+		const response = await api()
+			.get('/api/v1/references/dass21')
+			.expect(429);
 		expect(response.body).toEqual({
 			statusCode: 429,
+			code: 'RATE_LIMITED',
 			message: ['Too many requests'],
 			error: 'Too Many Requests',
 		});
@@ -133,10 +143,10 @@ describe('Reference questionnaire HTTP (isolated database)', () => {
 	});
 	it('should expose no write or expert-data routes when the reference module is registered', async () => {
 		await api()
-			.post('/references/dass21')
+			.post('/api/v1/references/dass21')
 			.send({ text: 'unapproved' })
 			.expect(404);
-		await api().get('/references/experts').expect(404);
+		await api().get('/api/v1/references/experts').expect(404);
 		expect(prisma.dASS21.findMany).not.toHaveBeenCalled();
 		expect(prisma.dASS42.findMany).not.toHaveBeenCalled();
 	});
@@ -145,7 +155,10 @@ describe('Reference questionnaire HTTP (isolated database)', () => {
 			app,
 			new DocumentBuilder().build(),
 		);
-		for (const path of ['/references/dass21', '/references/dass42']) {
+		for (const path of [
+			'/api/v1/references/dass21',
+			'/api/v1/references/dass42',
+		]) {
 			const operation = doc.paths[path].get!;
 			expect(operation.security).toBeUndefined();
 			expect(Object.keys(operation.responses).sort()).toEqual([

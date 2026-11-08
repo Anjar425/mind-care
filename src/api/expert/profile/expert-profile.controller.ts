@@ -22,7 +22,7 @@ import { ExpertProfileResDto } from './dto/res/expert-profile.res.dto';
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('EXPERT')
-@Controller('expert/me/profile')
+@Controller('expert/profile')
 export class ExpertProfileController {
 	constructor(private readonly service: ExpertProfileService) {}
 	@Get()

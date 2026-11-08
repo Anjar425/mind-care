@@ -24,14 +24,14 @@ describe('GroupLeadershipController HTTP contract', () => {
 		const group = httpData<PrivateGroupDto>(
 			await h
 				.api()
-				.get(`/expert/groups/${id}`)
+				.get(`/api/v1/expert/groups/${id}`)
 				.set(groupHeaders())
 				.expect(200),
 		);
 		return httpData<GroupTransferDto>(
 			await h
 				.api()
-				.post(`/expert/groups/${id}/leadership-transfers`)
+				.post(`/api/v1/expert/groups/${id}/leadership-transfers`)
 				.set(groupHeaders())
 				.send({
 					targetExpertId: groupExpertId(2),
@@ -44,34 +44,40 @@ describe('GroupLeadershipController HTTP contract', () => {
 		const grant = await propose();
 		await h
 			.api()
-			.get('/expert/me/group-leadership-transfers')
+			.get('/api/v1/expert/group-leadership-transfers')
 			.set(groupHeaders(2))
 			.expect(200);
 		await h
 			.api()
-			.get(`/expert/groups/${id}/leadership-transfers`)
+			.get(`/api/v1/expert/groups/${id}/leadership-transfers`)
 			.set(groupHeaders())
 			.expect(200);
 		await h
 			.api()
-			.get(`/expert/groups/${id}/leadership-transfers`)
+			.get(`/api/v1/expert/groups/${id}/leadership-transfers`)
 			.set(groupHeaders(2))
 			.expect(403);
 		await h
 			.api()
-			.post(`/expert/me/group-leadership-transfers/${grant.id}/accept`)
+			.post(
+				`/api/v1/expert/group-leadership-transfers/${grant.id}/accept`,
+			)
 			.set(groupHeaders(3))
 			.send({})
 			.expect(404);
 		await h
 			.api()
-			.post(`/expert/me/group-leadership-transfers/${grant.id}/accept`)
+			.post(
+				`/api/v1/expert/group-leadership-transfers/${grant.id}/accept`,
+			)
 			.set(groupHeaders(2))
 			.send({ targetExpertId: groupExpertId(3) })
 			.expect(400);
 		const result = await h
 			.api()
-			.post(`/expert/me/group-leadership-transfers/${grant.id}/decline`)
+			.post(
+				`/api/v1/expert/group-leadership-transfers/${grant.id}/decline`,
+			)
 			.set(groupHeaders(2))
 			.send({})
 			.expect(200);
@@ -86,35 +92,40 @@ describe('GroupLeadershipController HTTP contract', () => {
 		const group = httpData<PrivateGroupDto>(
 			await h
 				.api()
-				.get(`/expert/groups/${id}`)
+				.get(`/api/v1/expert/groups/${id}`)
 				.set(groupHeaders())
 				.expect(200),
 		);
 		await h
 			.api()
 			.post(
-				`/expert/groups/${id}/leadership-transfers/${grant.id}/revoke`,
+				`/api/v1/expert/groups/${id}/leadership-transfers/${grant.id}/revoke`,
 			)
 			.set(groupHeaders())
 			.send({ expectedStateHash: group.stateHash })
 			.expect(200);
 		await h
 			.api()
-			.post(`/expert/me/group-leadership-transfers/${grant.id}/accept`)
+			.post(
+				`/api/v1/expert/group-leadership-transfers/${grant.id}/accept`,
+			)
 			.set(groupHeaders(2))
 			.send({})
 			.expect(409);
 	});
 	it('should protect transfer routes with expert auth and validate target IDs', async () => {
-		await h.api().get('/expert/me/group-leadership-transfers').expect(401);
 		await h
 			.api()
-			.get('/expert/me/group-leadership-transfers')
+			.get('/api/v1/expert/group-leadership-transfers')
+			.expect(401);
+		await h
+			.api()
+			.get('/api/v1/expert/group-leadership-transfers')
 			.set('x-test-role', 'USER')
 			.expect(403);
 		await h
 			.api()
-			.post(`/expert/groups/${id}/leadership-transfers`)
+			.post(`/api/v1/expert/groups/${id}/leadership-transfers`)
 			.set(groupHeaders())
 			.send({
 				targetExpertId: 'invalid',

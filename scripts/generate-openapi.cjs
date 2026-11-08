@@ -56,6 +56,9 @@ async function main() {
 
 	const { NestFactory } = require('@nestjs/core');
 	const { AppModule } = require(resolve(ROOT, 'dist', 'app.module.js'));
+	const { configureRouting } = require(
+		resolve(ROOT, 'dist', 'api', 'app.setup.js'),
+	);
 	const { buildOpenApiDocument } = require(
 		resolve(ROOT, 'dist', 'api', 'common', 'swagger', 'setup-swagger.js'),
 	);
@@ -64,6 +67,8 @@ async function main() {
 		abortOnError: false,
 	});
 	try {
+		// Same /api/v1 prefix and URI versioning as the running application.
+		configureRouting(app);
 		const document = sortKeys(buildOpenApiDocument(app));
 		mkdirSync(dirname(OUTPUT), { recursive: true });
 		writeFileSync(OUTPUT, `${JSON.stringify(document, null, '\t')}\n`);

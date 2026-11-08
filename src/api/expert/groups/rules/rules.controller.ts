@@ -68,7 +68,7 @@ export class RulesController {
 	) {
 		return this.rules.create(req.user.sub, groupId, dto);
 	}
-	@Get('me/dass42-rules')
+	@Get('dass42-rules')
 	@RuleResponse(
 		RulesPageDto,
 		'Read your rules across groups, including own historical access after membership loss',

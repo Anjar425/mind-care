@@ -7,6 +7,14 @@ import {
 } from '@nestjs/common';
 import { GlobalExceptionFilter } from './global-exception.filter';
 
+const EXPECTED_CODE: Record<number, string> = {
+	400: 'VALIDATION_FAILED',
+	401: 'UNAUTHENTICATED',
+	403: 'FORBIDDEN',
+	404: 'NOT_FOUND',
+	409: 'CONFLICT',
+};
+
 describe('GlobalExceptionFilter', () => {
 	let filter: GlobalExceptionFilter;
 	let host: ArgumentsHost;
@@ -42,6 +50,7 @@ describe('GlobalExceptionFilter', () => {
 			);
 			expect(response.json).toHaveBeenCalledWith({
 				statusCode: status,
+				code: EXPECTED_CODE[status],
 				message: ['Controlled failure'],
 				error: 'Rejected',
 			});
@@ -55,6 +64,7 @@ describe('GlobalExceptionFilter', () => {
 		);
 		expect(response.json).toHaveBeenCalledWith({
 			statusCode: 400,
+			code: 'VALIDATION_FAILED',
 			message: ['page is invalid', 'limit is invalid'],
 			error: 'Bad Request',
 		});
@@ -76,6 +86,7 @@ describe('GlobalExceptionFilter', () => {
 		filter.catch(error, host);
 		expect(response.json).toHaveBeenCalledWith({
 			statusCode: 500,
+			code: 'INTERNAL_ERROR',
 			message: ['Internal server error'],
 			error: 'Internal Server Error',
 		});
@@ -95,6 +106,7 @@ describe('GlobalExceptionFilter', () => {
 		filter.catch(new HttpException('Controlled failure', 400), host);
 		expect(response.json).toHaveBeenCalledWith({
 			statusCode: 400,
+			code: 'VALIDATION_FAILED',
 			message: ['Controlled failure'],
 			error: 'Bad Request',
 		});
@@ -105,9 +117,42 @@ describe('GlobalExceptionFilter', () => {
 			filter.catch(new HttpException(body, 400), host);
 			expect(response.json).toHaveBeenCalledWith({
 				statusCode: 400,
+				code: 'VALIDATION_FAILED',
 				message: ['Request rejected'],
 				error: 'Bad Request',
 			});
 		},
 	);
+	it('should keep an explicit catalogued code and ignore an unknown one', () => {
+		filter.catch(
+			new HttpException(
+				{ message: 'Rate exceeded', code: 'RATE_LIMITED' },
+				400,
+			),
+			host,
+		);
+		expect(response.json).toHaveBeenLastCalledWith(
+			expect.objectContaining({ code: 'RATE_LIMITED' }),
+		);
+		filter.catch(
+			new HttpException(
+				{ message: 'Odd', code: 'PRIVATE_INTERNAL' },
+				400,
+			),
+			host,
+		);
+		expect(response.json).toHaveBeenLastCalledWith(
+			expect.objectContaining({ code: 'VALIDATION_FAILED' }),
+		);
+	});
+	it('should derive a code for statuses without a catalogue entry', () => {
+		filter.catch(new HttpException('Teapot', 418), host);
+		expect(response.json).toHaveBeenLastCalledWith(
+			expect.objectContaining({ code: 'REQUEST_REJECTED' }),
+		);
+		filter.catch(new HttpException('Gateway', 502), host);
+		expect(response.json).toHaveBeenLastCalledWith(
+			expect.objectContaining({ code: 'INTERNAL_ERROR' }),
+		);
+	});
 });

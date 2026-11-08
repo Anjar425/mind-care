@@ -29,6 +29,7 @@ import type {
 	AccessPrincipal,
 	RefreshPrincipal,
 } from '../../../domain/identity/identity.types';
+import { RateLimit } from '../../common/rate-limit/rate-limit.decorator';
 
 @ApiTags('Auth')
 @ErrorPolicy('auth')
@@ -37,6 +38,7 @@ export class AuthController {
 	constructor(private readonly authService: AuthService) {}
 
 	@Post('/user/register')
+	@RateLimit('register')
 	@HttpCode(HttpStatus.CREATED)
 	@ApiOperation({ summary: 'Register an ordinary user' })
 	@AuthApiResponse(
@@ -50,6 +52,7 @@ export class AuthController {
 	}
 
 	@Post('/expert/register')
+	@RateLimit('register')
 	@HttpCode(HttpStatus.CREATED)
 	@ApiOperation({
 		summary: 'Register an expert account',
@@ -67,6 +70,7 @@ export class AuthController {
 	}
 
 	@Post('/login')
+	@RateLimit('login')
 	@HttpCode(HttpStatus.OK)
 	@ApiOperation({
 		summary: 'Sign in an ordinary user',
@@ -79,6 +83,7 @@ export class AuthController {
 	}
 
 	@Post('/expert/login')
+	@RateLimit('login')
 	@HttpCode(HttpStatus.OK)
 	@ApiOperation({
 		summary: 'Sign in an expert account',
@@ -91,6 +96,7 @@ export class AuthController {
 	}
 
 	@Post('/admin/login')
+	@RateLimit('login')
 	@HttpCode(HttpStatus.OK)
 	@ApiOperation({
 		summary: 'Sign in an existing administrator',
@@ -103,6 +109,7 @@ export class AuthController {
 	}
 
 	@Post('/refresh')
+	@RateLimit('refresh')
 	@HttpCode(HttpStatus.OK)
 	@UseGuards(RefreshAuthGuard)
 	@ApiBearerAuth('refresh-token')
@@ -136,6 +143,7 @@ export class AuthController {
 	}
 
 	@Post('/send-verification')
+	@RateLimit('verification')
 	@HttpCode(HttpStatus.OK)
 	@ApiOperation({ summary: 'Request an email verification link' })
 	@AuthApiResponse(
@@ -161,6 +169,7 @@ export class AuthController {
 	}
 
 	@Post('/forgot-password')
+	@RateLimit('forgot')
 	@HttpCode(HttpStatus.OK)
 	@ApiOperation({
 		summary: 'Request a password reset link',

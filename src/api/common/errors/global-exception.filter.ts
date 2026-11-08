@@ -8,16 +8,25 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { DEFAULT_MESSAGE } from './default-messages';
-import { REDACTION_POLICIES, type ErrorPolicyName } from './error-policies';
+import {
+	isErrorCode,
+	type ErrorCode,
+} from '../../../shared/contracts/error-codes';
+import {
+	errorCodeFor,
+	REDACTION_POLICIES,
+	type ErrorPolicyName,
+} from './error-policies';
 
 interface ErrorBody {
 	statusCode: number;
+	code: ErrorCode;
 	message: string[];
 	error: string;
 }
 
 /**
- * The only exception filter. Renders `{ statusCode, message[], error }` and never exposes
+ * The only exception filter. Renders `{ statusCode, code, message[], error }` and never exposes
  * stacks, URLs, request bodies or submitted values. Registered globally without a policy;
  * `@ErrorPolicy(...)` binds a controller-scoped instance with one.
  */
@@ -43,6 +52,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 					response.setHeader('WWW-Authenticate', 'Bearer');
 				return send(response, {
 					statusCode: status,
+					code: errorCodeFor(status, policy),
 					message: [redaction.messages[status] ?? redaction.fallback],
 					error: redaction.error,
 				});
@@ -63,6 +73,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 			this.logger.error('API request failed');
 			return send(response, {
 				statusCode: status,
+				code: errorCodeFor(status),
 				message: ['Internal server error'],
 				error:
 					DEFAULT_MESSAGE[status]?.error ??
@@ -91,6 +102,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 			this.logger.error('Authentication request failed');
 			return send(response, {
 				statusCode: 500,
+				code: 'INTERNAL_ERROR',
 				message: ['Internal server error'],
 				error: 'Internal Server Error',
 			});
@@ -106,8 +118,10 @@ function parseHttpBody(
 	status: number,
 	rendering: 'default' | 'auth',
 ): Omit<ErrorBody, 'statusCode'> {
+	// A service may name a catalogued code explicitly; otherwise the status decides.
 	const body: unknown =
 		exception instanceof HttpException ? exception.getResponse() : null;
+	let code = errorCodeFor(status);
 	let message = ['Request rejected'];
 	let error =
 		DEFAULT_MESSAGE[status]?.error ??
@@ -127,10 +141,12 @@ function parseHttpBody(
 		}
 		if ('error' in body && typeof body.error === 'string')
 			error = body.error;
+		if ('code' in body && isErrorCode(body.code)) code = body.code;
 	}
-	return { message, error };
+	return { code, message, error };
 }
 
 function send(response: Response, body: ErrorBody): void {
-	response.status(body.statusCode).json(body);
+	const { statusCode, code, message, error } = body;
+	response.status(statusCode).json({ statusCode, code, message, error });
 }

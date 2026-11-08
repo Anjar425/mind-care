@@ -15,7 +15,7 @@ import type {
 } from './identity.types';
 import { IDENTITY_TX } from './identity-persistence';
 
-const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const USER_SELECT = { id: true, name: true, email: true, role: true } as const;
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -50,7 +50,11 @@ export class AuthSessionService {
 				)
 					this.deny();
 				const sid = randomUUID();
-				const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
+				const expiresAt = new Date(
+					Date.now() +
+						this.config.get('SESSION_TTL_DAYS', { infer: true }) *
+							DAY_MS,
+				);
 				const tokens = this.sign(this.publicUser(user), sid, expiresAt);
 				await tx.refreshToken.create({
 					data: {
@@ -174,7 +178,9 @@ export class AuthSessionService {
 						infer: true,
 					}),
 					algorithm: 'HS256',
-					expiresIn: '15m',
+					expiresIn: this.config.get('ACCESS_TOKEN_TTL_SECONDS', {
+						infer: true,
+					}),
 				},
 			),
 			refreshToken: this.jwt.sign(

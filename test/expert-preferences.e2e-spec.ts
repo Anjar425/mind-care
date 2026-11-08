@@ -85,17 +85,17 @@ describe('Expert preference HTTP (real services; synthetic auth and persistence)
 	const api = () => request(app.getHttpServer());
 	const put = (body: unknown) =>
 		api()
-			.put('/expert/me/preferences')
+			.put('/api/v1/expert/preferences')
 			.set('x-test-role', 'EXPERT')
 			.send(body as object);
 	const get = () =>
-		api().get('/expert/me/preferences').set('x-test-role', 'EXPERT');
+		api().get('/api/v1/expert/preferences').set('x-test-role', 'EXPERT');
 	const data = (response: { body: unknown }) =>
 		(response.body as { data: PreferenceState }).data;
 	it('should require a valid session for both private endpoints', async () => {
-		await api().get('/expert/me/preferences').expect(401);
+		await api().get('/api/v1/expert/preferences').expect(401);
 		await api()
-			.put('/expert/me/preferences')
+			.put('/api/v1/expert/preferences')
 			.send(validPreferencesSubmission())
 			.expect(401);
 		expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
@@ -104,11 +104,11 @@ describe('Expert preference HTTP (real services; synthetic auth and persistence)
 		'should deny other-role %s access without reading private preferences',
 		async (role) => {
 			await api()
-				.get('/expert/me/preferences')
+				.get('/api/v1/expert/preferences')
 				.set('x-test-role', role)
 				.expect(403);
 			await api()
-				.put('/expert/me/preferences')
+				.put('/api/v1/expert/preferences')
 				.set('x-test-role', role)
 				.send(validPreferencesSubmission())
 				.expect(403);
@@ -345,13 +345,13 @@ describe('Expert preference HTTP (real services; synthetic auth and persistence)
 	});
 	it('should keep public bulk, arbitrary-owner, partial-write and admin-edit routes unavailable', async () => {
 		for (const route of [
-			'/expert/preference/get-all',
-			'/expert/me/preferences/other',
-			'/admin/expert-preferences',
+			'/api/v1/expert/preference/get-all',
+			'/api/v1/expert/preferences/other',
+			'/api/v1/admin/expert-preferences',
 		])
 			await api().get(route).set('x-test-role', 'EXPERT').expect(404);
 		await api()
-			.patch('/expert/me/preferences')
+			.patch('/api/v1/expert/preferences')
 			.set('x-test-role', 'EXPERT')
 			.send({})
 			.expect(404);
@@ -379,10 +379,14 @@ describe('Expert preference HTTP (real services; synthetic auth and persistence)
 			'properties.stateHash.type',
 			'string',
 		);
-		expect(doc.paths['/expert/me/preferences'].put?.security).toBeDefined();
 		expect(
-			doc.paths['/expert/me/preferences'].put?.responses,
+			doc.paths['/api/v1/expert/preferences'].put?.security,
+		).toBeDefined();
+		expect(
+			doc.paths['/api/v1/expert/preferences'].put?.responses,
 		).toHaveProperty('409');
-		expect(doc.paths).not.toHaveProperty('/expert/preference/get-all');
+		expect(doc.paths).not.toHaveProperty(
+			'/api/v1/expert/preference/get-all',
+		);
 	});
 });

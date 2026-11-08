@@ -57,7 +57,8 @@ USER node
 CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node dist/reference-seed/scripts/seed-reference-data.js --apply"]
 
 FROM ${NODE_IMAGE} AS runtime
-ENV NODE_ENV=development \
+# Production by default; the local compose stack sets NODE_ENV=development explicitly.
+ENV NODE_ENV=production \
 	PORT=3000
 WORKDIR /app
 COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules

@@ -22,7 +22,7 @@ import { ExpertPreferencesResDto } from './dto/res/expert-preferences.res.dto';
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('EXPERT')
-@Controller('expert/me/preferences')
+@Controller('expert/preferences')
 export class ExpertPreferencesController {
 	constructor(private readonly service: ExpertPreferencesService) {}
 	@Get()

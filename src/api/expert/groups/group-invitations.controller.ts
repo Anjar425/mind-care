@@ -4,7 +4,6 @@ import {
 	Get,
 	HttpCode,
 	Param,
-	ParseIntPipe,
 	ParseUUIDPipe,
 	Post,
 	Query,
@@ -28,6 +27,7 @@ import {
 	GroupInvitationsPageDto,
 } from '../../common/dto/groups/group-responses.dto';
 import { GroupResponse } from '../../common/dto/groups/group-api.decorator';
+import { PositiveIntIdPipe } from '../../common/pipes/positive-int-id.pipe';
 
 @ApiTags('Group invitations')
 @ApiBearerAuth()
@@ -44,12 +44,12 @@ export class GroupInvitationsController {
 	)
 	invite(
 		@Req() req: { user: AccessPrincipal },
-		@Param('groupId', ParseIntPipe) id: number,
+		@Param('groupId', PositiveIntIdPipe) id: number,
 		@Body() dto: InviteGroupDto,
 	) {
 		return this.groups.invite(req.user.sub, id, dto);
 	}
-	@Get('me/group-invitations')
+	@Get('group-invitations')
 	@GroupResponse(
 		GroupInvitationsPageDto,
 		'Read your addressed invitation inbox',
@@ -64,12 +64,12 @@ export class GroupInvitationsController {
 	)
 	outbox(
 		@Req() req: { user: AccessPrincipal },
-		@Param('groupId', ParseIntPipe) id: number,
+		@Param('groupId', PositiveIntIdPipe) id: number,
 		@Query() q: GroupPageQuery,
 	) {
 		return this.groups.invitations(req.user.sub, q, id);
 	}
-	@Post('me/group-invitations/:invitationId/accept')
+	@Post('group-invitations/:invitationId/accept')
 	@HttpCode(200)
 	@GroupResponse(
 		GroupInvitationDto,
@@ -83,7 +83,7 @@ export class GroupInvitationsController {
 		void _dto;
 		return this.groups.decideInvitation(req.user.sub, id, true);
 	}
-	@Post('me/group-invitations/:invitationId/decline')
+	@Post('group-invitations/:invitationId/decline')
 	@HttpCode(200)
 	@GroupResponse(
 		GroupInvitationDto,
@@ -105,7 +105,7 @@ export class GroupInvitationsController {
 	)
 	revoke(
 		@Req() req: { user: AccessPrincipal },
-		@Param('groupId', ParseIntPipe) groupId: number,
+		@Param('groupId', PositiveIntIdPipe) groupId: number,
 		@Param('invitationId', new ParseUUIDPipe()) id: string,
 		@Body() dto: GroupStateDto,
 	) {

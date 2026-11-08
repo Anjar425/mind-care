@@ -83,22 +83,22 @@ describe('Owner expert profile HTTP (real services, synthetic persistence/auth)'
 	const api = () => request(app.getHttpServer());
 	const put = (body: unknown) =>
 		api()
-			.put('/expert/me/profile')
+			.put('/api/v1/expert/profile')
 			.set('x-test-role', 'EXPERT')
 			.send(body as object);
 	it('should require a valid session for private profile reads', async () => {
-		await api().get('/expert/me/profile').expect(401);
+		await api().get('/api/v1/expert/profile').expect(401);
 		expect(mocks.prisma.expert.findUnique).not.toHaveBeenCalled();
 	});
 	it.each(['USER', 'ADMIN'])(
 		'should deny read and write access to %s',
 		async (role) => {
 			await api()
-				.get('/expert/me/profile')
+				.get('/api/v1/expert/profile')
 				.set('x-test-role', role)
 				.expect(403);
 			await api()
-				.put('/expert/me/profile')
+				.put('/api/v1/expert/profile')
 				.set('x-test-role', role)
 				.send(validProfileSubmission())
 				.expect(403);
@@ -107,7 +107,7 @@ describe('Owner expert profile HTTP (real services, synthetic persistence/auth)'
 	);
 	it('should return an explicit owned unsubmitted profile without inventing clinical hours', async () => {
 		const response = await api()
-			.get('/expert/me/profile')
+			.get('/api/v1/expert/profile')
 			.set('x-test-role', 'EXPERT')
 			.expect(200);
 		const { data } = response.body as { data: ExpertProfileResDto };
@@ -213,7 +213,7 @@ describe('Owner expert profile HTTP (real services, synthetic persistence/auth)'
 			)!.expiresAt = new Date('2020-01-01');
 			await put(validProfileSubmission()).expect(403);
 			await api()
-				.get('/expert/me/profile')
+				.get('/api/v1/expert/profile')
 				.set('x-test-role', 'EXPERT')
 				.expect(200);
 			expect(mocks.prisma.weight.upsert).not.toHaveBeenCalled();
@@ -242,21 +242,21 @@ describe('Owner expert profile HTTP (real services, synthetic persistence/auth)'
 	});
 	it('should keep all generic scaffold/public/admin profile routes unavailable', async () => {
 		for (const route of [
-			'/expert',
-			'/expert/1',
-			'/admin/expert-profiles',
-			'/expert/me/profile/other',
+			'/api/v1/expert',
+			'/api/v1/expert/1',
+			'/api/v1/admin/expert-profiles',
+			'/api/v1/expert/profile/other',
 		])
 			await api().get(route).set('x-test-role', 'EXPERT').expect(404);
 	});
 	it('should apply the existing general quota to profile reads', async () => {
 		for (let i = 0; i < 120; i++)
 			await api()
-				.get('/expert/me/profile')
+				.get('/api/v1/expert/profile')
 				.set('x-test-role', 'EXPERT')
 				.expect(200);
 		await api()
-			.get('/expert/me/profile')
+			.get('/api/v1/expert/profile')
 			.set('x-test-role', 'EXPERT')
 			.expect(429);
 	});
@@ -274,11 +274,11 @@ describe('Owner expert profile HTTP (real services, synthetic persistence/auth)'
 			'patientWeight',
 			'clinicalHoursWeight',
 		]);
-		expect(doc.paths['/expert/me/profile'].put?.responses).toHaveProperty(
-			'409',
-		);
-		expect(doc.paths['/expert/me/profile'].put?.security).toBeDefined();
-		expect(doc.paths).not.toHaveProperty('/expert');
+		expect(
+			doc.paths['/api/v1/expert/profile'].put?.responses,
+		).toHaveProperty('409');
+		expect(doc.paths['/api/v1/expert/profile'].put?.security).toBeDefined();
+		expect(doc.paths).not.toHaveProperty('/api/v1/expert');
 		expect(doc.components?.schemas?.ExpertCapabilityResDto).toHaveProperty(
 			'properties.clinicalHours.type',
 			'number',

@@ -20,7 +20,7 @@ describe('Group lifecycle HTTP integration (synthetic auth/DB; real policies)', 
 		let group = httpData<PrivateGroupDto>(
 			await h
 				.api()
-				.post('/expert/groups')
+				.post('/api/v1/expert/groups')
 				.set(groupHeaders())
 				.send({
 					name: 'Screening group',
@@ -32,7 +32,7 @@ describe('Group lifecycle HTTP integration (synthetic auth/DB; real policies)', 
 			const invitation = httpData<GroupInvitationDto>(
 				await h
 					.api()
-					.post(`/expert/groups/${group.id}/invitations`)
+					.post(`/api/v1/expert/groups/${group.id}/invitations`)
 					.set(groupHeaders())
 					.send({
 						recipientUserId: groupUserId(n),
@@ -42,26 +42,28 @@ describe('Group lifecycle HTTP integration (synthetic auth/DB; real policies)', 
 			);
 			await h
 				.api()
-				.post(`/expert/me/group-invitations/${invitation.id}/accept`)
+				.post(
+					`/api/v1/expert/group-invitations/${invitation.id}/accept`,
+				)
 				.set(groupHeaders(n))
 				.send({})
 				.expect(200);
 			group = httpData<PrivateGroupDto>(
 				await h
 					.api()
-					.get(`/expert/groups/${group.id}`)
+					.get(`/api/v1/expert/groups/${group.id}`)
 					.set(groupHeaders())
 					.expect(200),
 			);
 		}
 		const publicGroup = httpData<PublicGroupDto>(
-			await h.api().get(`/groups/public/${group.id}`).expect(200),
+			await h.api().get(`/api/v1/groups/public/${group.id}`).expect(200),
 		);
 		expect(publicGroup.validExpertCount).toBe(4);
 		const transfer = httpData<GroupTransferDto>(
 			await h
 				.api()
-				.post(`/expert/groups/${group.id}/leadership-transfers`)
+				.post(`/api/v1/expert/groups/${group.id}/leadership-transfers`)
 				.set(groupHeaders())
 				.send({
 					targetExpertId: groupExpertId(2),
@@ -71,14 +73,16 @@ describe('Group lifecycle HTTP integration (synthetic auth/DB; real policies)', 
 		);
 		await h
 			.api()
-			.post(`/expert/me/group-leadership-transfers/${transfer.id}/accept`)
+			.post(
+				`/api/v1/expert/group-leadership-transfers/${transfer.id}/accept`,
+			)
 			.set(groupHeaders(2))
 			.send({})
 			.expect(200);
 		group = httpData<PrivateGroupDto>(
 			await h
 				.api()
-				.get(`/expert/groups/${group.id}`)
+				.get(`/api/v1/expert/groups/${group.id}`)
 				.set(groupHeaders(2))
 				.expect(200),
 		);
@@ -87,7 +91,7 @@ describe('Group lifecycle HTTP integration (synthetic auth/DB; real policies)', 
 		await h
 			.api()
 			.post(
-				`/expert/groups/${group.id}/members/${groupExpertId(4)}/remove`,
+				`/api/v1/expert/groups/${group.id}/members/${groupExpertId(4)}/remove`,
 			)
 			.set(groupHeaders(2))
 			.send({
@@ -95,31 +99,31 @@ describe('Group lifecycle HTTP integration (synthetic auth/DB; real policies)', 
 				reason: 'Membership review',
 			})
 			.expect(200);
-		await h.api().get(`/groups/public/${group.id}`).expect(404);
+		await h.api().get(`/api/v1/groups/public/${group.id}`).expect(404);
 		expect(h.mocks.state.experts).toEqual(inputs);
 		group = httpData<PrivateGroupDto>(
 			await h
 				.api()
-				.get(`/expert/groups/${group.id}`)
+				.get(`/api/v1/expert/groups/${group.id}`)
 				.set(groupHeaders(2))
 				.expect(200),
 		);
 		await h
 			.api()
-			.post(`/expert/groups/${group.id}/leave`)
+			.post(`/api/v1/expert/groups/${group.id}/leave`)
 			.set(groupHeaders())
 			.send({ expectedStateHash: group.stateHash })
 			.expect(200);
 		group = httpData<PrivateGroupDto>(
 			await h
 				.api()
-				.get(`/expert/groups/${group.id}`)
+				.get(`/api/v1/expert/groups/${group.id}`)
 				.set(groupHeaders(2))
 				.expect(200),
 		);
 		await h
 			.api()
-			.post(`/expert/groups/${group.id}/archive`)
+			.post(`/api/v1/expert/groups/${group.id}/archive`)
 			.set(groupHeaders(2))
 			.send({
 				expectedStateHash: group.stateHash,
@@ -137,7 +141,7 @@ describe('Group lifecycle HTTP integration (synthetic auth/DB; real policies)', 
 		);
 		const response = await h
 			.api()
-			.post('/expert/groups')
+			.post('/api/v1/expert/groups')
 			.set(groupHeaders())
 			.send({ name: 'Group', description: 'Description' })
 			.expect(503);

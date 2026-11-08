@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import { errorCodeFor } from '../errors/error-policies';
 import { MAX_SCREENING_REQUEST_BYTES } from '../../../shared/contracts/screening';
 // Early feature-scoped stream bound. No new Express runtime dependency or global parser override.
 export function screeningPrivacyMiddleware(
@@ -19,6 +20,7 @@ export function screeningPrivacyMiddleware(
 		finished = true;
 		res.status(status).json({
 			statusCode: status,
+			code: errorCodeFor(status, 'screening'),
 			message: [
 				status === 413
 					? 'Screening request exceeds capacity'

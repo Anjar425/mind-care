@@ -96,7 +96,35 @@ pnpm build          # runs prisma generate, then nest build (copies mail templat
 pnpm start:prod     # node dist/main
 ```
 
-Swagger UI is served at `/docs` outside production. `NODE_ENV=production` is deliberately rejected until the production deployment profile is approved.
+Swagger UI is served at `/docs` when `SWAGGER_MODE=public` (the default outside production).
+
+### Production profile
+
+`NODE_ENV=production` is supported and assumes the first deployment layout: the frontend and the API on one origin behind a single TLS-terminating reverse proxy.
+
+| Setting                                         | Production default         | Effect                                                                                 |
+| ----------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------- |
+| `CORS_ORIGIN`                                   | none (same-origin)         | No CORS headers; set https origins (comma list) only for a separate frontend origin    |
+| `TRUST_PROXY_HOPS`                              | 0 (set 1 behind the proxy) | Express trusts that many `X-Forwarded-For` hops; rate limits key on the real client IP |
+| `SWAGGER_MODE`                                  | `off`                      | `/docs`, `/docs-json` and `/docs-yaml` return 404                                      |
+| `ACCESS_TOKEN_TTL_SECONDS` / `SESSION_TTL_DAYS` | 900 / 7                    | Access token and refresh session lifetimes                                             |
+| `DB_POOL_MAX` / `DB_STATEMENT_TIMEOUT_MS`       | 10 / 15000                 | Connection pool size; per-statement and idle-in-transaction timeout                    |
+
+Production also requires `https://` for `FRONTEND_URL` and every CORS origin, sends HSTS (1 year, subdomains) and Helmet's default strict CSP. The reference seeder still refuses `NODE_ENV=production` (ingestion needs its own authorization policy), so production migrations run `prisma migrate deploy` only; seed reference data separately until that policy exists. Secrets, TLS, backups and point-in-time recovery are provider configuration, not part of this repository.
+
+Try the profile locally (synthetic values, Swagger off, HSTS on):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --build --wait api
+```
+
+### HTTP API conventions
+
+- Every route lives under `/api/v1` (`API_BASE_PATH` in `src/shared/contracts/api.ts`); only the probes `/health/live` and `/health/ready` are unversioned.
+- No `/me` routes: the caller is implied by the access token. Own resources are `/api/v1/account/...` (history) and `/api/v1/expert/...` (profile, preferences, credentials, groups, group invitations, leadership transfers, DASS42 rules, notifications).
+- Every error body is `{ statusCode, code, message[], error }`. `code` is stable and catalogued in `src/shared/contracts/error-codes.ts` (`ErrorCode` in the OpenAPI document); clients branch on `code`, never on `message`. A service may set a catalogued code explicitly with `new HttpException({ message, code }, status)`; history and screening routes always use their fixed, redacted code per status.
+- Action rate limits are declared on the handler with `@RateLimit('login' | 'register' | ...)`; the no-store/body-bound privacy middleware is mounted at the controller's own base path (`PRIVACY_BOUNDARIES` in `src/api/app.setup.ts`). Renaming a route therefore cannot silently drop either.
+- The browser SDK defaults to `/api/v1`; pass another `basePath` to `historyTransport(...)` / `new ScreeningClient(...)` when the HTTP client already adds it.
 
 ### Run with Docker
 
@@ -104,7 +132,7 @@ Swagger UI is served at `/docs` outside production. `NODE_ENV=production` is del
 docker compose up --build     # postgres, mailpit, one-shot migrate+seed, API on :3000
 ```
 
-The `api` service reads `.env` (optional) and overrides `DATABASE_URL` and `MAIL_*` to the compose services. Credential documents persist in the `credentials` volume. The image runs with `NODE_ENV=development` and is for local/CI use only until the production profile exists.
+The `api` service reads `.env` (optional) and overrides `DATABASE_URL` and `MAIL_*` to the compose services. Credential documents persist in the `credentials` volume. The runtime image defaults to `NODE_ENV=production`; the compose stack sets `development` explicitly, and `docker-compose.production.yml` switches it to the production profile.
 
 ## Quality checks
 
@@ -152,13 +180,13 @@ Regenerate the committed contract with `pnpm build && pnpm openapi:generate` whe
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `master`:
 
-| Job          | Checks                                                                                                           |
-| ------------ | ---------------------------------------------------------------------------------------------------------------- |
-| quality      | typecheck, lint, format, all tests with coverage                                                                 |
-| database     | migrations on an empty PostgreSQL 16, drift check, seeder twice, `test:db`                                       |
-| api-contract | `docs/openapi.json` up to date; breaking changes vs. the base branch (accept with the `breaking-change` label)   |
-| image        | builds `runtime` and `migrator` images, starts the compose stack with `docker/smoke.env`, probes `/health/ready` |
-| audit        | blocks on high or critical production advisories                                                                 |
+| Job          | Checks                                                                                                                                                                                                               |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| quality      | typecheck, lint, format, all tests with coverage                                                                                                                                                                     |
+| database     | migrations on an empty PostgreSQL 16, drift check, seeder twice, `test:db`                                                                                                                                           |
+| api-contract | `docs/openapi.json` up to date; breaking changes vs. the base branch (accept with the `breaking-change` label)                                                                                                       |
+| image        | builds `runtime` and `migrator` images, starts the compose stack with `docker/smoke.env`, probes `/health/ready`, then restarts the API in the production profile and checks HSTS, `/docs` 404 and a versioned route |
+| audit        | blocks on high or critical production advisories                                                                                                                                                                     |
 
 Dependabot (`.github/dependabot.yml`) opens weekly npm and monthly Actions/Docker update PRs.
 

@@ -11,14 +11,14 @@ describe('QDSS leader/admin/sample-member HTTP lifecycle', () => {
 	let h: Awaited<ReturnType<typeof createQdssHttp>>;
 	let groupId: number;
 	const admin = { 'x-test-role': 'ADMIN', 'x-test-user': qdssAdmin };
-	const base = () => `/expert/groups/${groupId}/qdss`;
+	const base = () => `/api/v1/expert/groups/${groupId}/qdss`;
 	beforeEach(async () => {
 		h = await createQdssHttp();
 		groupId = h.mocks.groups.seedGroup([1, 2, 3, 4]);
 		jest.spyOn(SystemRandom.prototype, 'uniform').mockReturnValue(0.5);
 		await h
 			.api()
-			.post('/admin/qdss/global/initialize')
+			.post('/api/v1/admin/qdss/global/initialize')
 			.set(admin)
 			.send({})
 			.expect(200);
@@ -54,7 +54,7 @@ describe('QDSS leader/admin/sample-member HTTP lifecycle', () => {
 		const global = httpData<QdssDatasetResponseDto>(
 			await h
 				.api()
-				.get('/admin/qdss/global/calibration')
+				.get('/api/v1/admin/qdss/global/calibration')
 				.set(admin)
 				.expect(200),
 		);
@@ -63,7 +63,7 @@ describe('QDSS leader/admin/sample-member HTTP lifecycle', () => {
 		);
 		await h
 			.api()
-			.put('/admin/qdss/global/calibration')
+			.put('/api/v1/admin/qdss/global/calibration')
 			.set(admin)
 			.send({
 				catalogVersion: global.catalogVersion,
@@ -138,7 +138,7 @@ describe('QDSS leader/admin/sample-member HTTP lifecycle', () => {
 		await h
 			.api()
 			.get(
-				`/expert/groups/${other}/qdss/calibration?revisionId=${own.revisionId}`,
+				`/api/v1/expert/groups/${other}/qdss/calibration?revisionId=${own.revisionId}`,
 			)
 			.set(groupHeaders())
 			.expect(404);

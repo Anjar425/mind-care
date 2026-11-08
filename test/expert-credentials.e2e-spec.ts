@@ -110,7 +110,7 @@ describe('Credential HTTP contracts (synthetic auth/database/storage)', () => {
 	const api = () => request(app.getHttpServer());
 	const upload = (kind = 'STR') =>
 		api()
-			.post(`/expert/me/credentials/${kind}`)
+			.post(`/api/v1/expert/credentials/${kind}`)
 			.set('x-test-role', 'EXPERT')
 			.field('number', 'STR-123')
 			.field('holderName', 'Example Expert')
@@ -121,14 +121,14 @@ describe('Credential HTTP contracts (synthetic auth/database/storage)', () => {
 				contentType: 'application/pdf',
 			});
 	it('should return 401 when no session is present', async () => {
-		await api().get('/expert/me/credentials').expect(401);
+		await api().get('/api/v1/expert/credentials').expect(401);
 		expect(service.state).not.toHaveBeenCalled();
 	});
 	it.each(['USER', 'ADMIN'])(
 		'should deny owner routes to %s',
 		async (role) => {
 			await api()
-				.get('/expert/me/credentials')
+				.get('/api/v1/expert/credentials')
 				.set('x-test-role', role)
 				.expect(403);
 			expect(service.state).not.toHaveBeenCalled();
@@ -136,7 +136,7 @@ describe('Credential HTTP contracts (synthetic auth/database/storage)', () => {
 	);
 	it('should return an enveloped owned state without public listing', async () => {
 		const result = await api()
-			.get('/expert/me/credentials')
+			.get('/api/v1/expert/credentials')
 			.set('x-test-role', 'EXPERT')
 			.expect(200);
 		expect(result.body).toEqual({
@@ -150,7 +150,7 @@ describe('Credential HTTP contracts (synthetic auth/database/storage)', () => {
 				revisions: [],
 			},
 		});
-		await api().get('/expert').expect(404);
+		await api().get('/api/v1/expert').expect(404);
 	});
 	it('should accept validated multipart metadata and preserve the exact original values', async () => {
 		await upload().expect(201);
@@ -180,7 +180,7 @@ describe('Credential HTTP contracts (synthetic auth/database/storage)', () => {
 	});
 	it('should reject expertId or approval injection in multipart fields', async () => {
 		await api()
-			.post('/expert/me/credentials/STR')
+			.post('/api/v1/expert/credentials/STR')
 			.set('x-test-role', 'EXPERT')
 			.field('expertId', 'other')
 			.field('number', 'STR-123')
@@ -192,7 +192,7 @@ describe('Credential HTTP contracts (synthetic auth/database/storage)', () => {
 	});
 	it('should reject files exceeding 5 MiB before invoking the service', async () => {
 		await api()
-			.post('/expert/me/credentials/STR')
+			.post('/api/v1/expert/credentials/STR')
 			.set('x-test-role', 'EXPERT')
 			.attach('file', Buffer.alloc(5242881), {
 				filename: 'large.pdf',
@@ -210,7 +210,7 @@ describe('Credential HTTP contracts (synthetic auth/database/storage)', () => {
 	});
 	it('should return binary private attachments without a JSON envelope', async () => {
 		const result = await api()
-			.get(`/expert/me/credentials/${revisionId}/document`)
+			.get(`/api/v1/expert/credentials/${revisionId}/document`)
 			.set('x-test-role', 'EXPERT')
 			.expect(200);
 		expect(result.headers['content-type']).toContain('application/pdf');
@@ -220,7 +220,7 @@ describe('Credential HTTP contracts (synthetic auth/database/storage)', () => {
 	});
 	it('should validate revision UUIDs before private file access', async () => {
 		await api()
-			.get('/expert/me/credentials/not-a-uuid/document')
+			.get('/api/v1/expert/credentials/not-a-uuid/document')
 			.set('x-test-role', 'EXPERT')
 			.expect(400);
 		expect(service.download).not.toHaveBeenCalled();
@@ -229,24 +229,24 @@ describe('Credential HTTP contracts (synthetic auth/database/storage)', () => {
 		'should deny private review routes to %s',
 		async (role) => {
 			await api()
-				.get('/admin/expert-credentials')
+				.get('/api/v1/admin/expert-credentials')
 				.set('x-test-role', role)
 				.expect(403);
 		},
 	);
 	it('should paginate admin review queues and reject unbounded pagination', async () => {
 		await api()
-			.get('/admin/expert-credentials?skip=0&take=20')
+			.get('/api/v1/admin/expert-credentials?skip=0&take=20')
 			.set('x-test-role', 'ADMIN')
 			.expect(200);
 		await api()
-			.get('/admin/expert-credentials?take=101')
+			.get('/api/v1/admin/expert-credentials?take=101')
 			.set('x-test-role', 'ADMIN')
 			.expect(400);
 	});
 	it('should approve through a validated exact-revision contract', async () => {
 		await api()
-			.post(`/admin/expert-credentials/${revisionId}/review`)
+			.post(`/api/v1/admin/expert-credentials/${revisionId}/review`)
 			.set('x-test-role', 'ADMIN')
 			.send({
 				decision: 'APPROVE',
@@ -260,7 +260,7 @@ describe('Credential HTTP contracts (synthetic auth/database/storage)', () => {
 	});
 	it('should reject review metadata edits and invalid matching evidence', async () => {
 		await api()
-			.post(`/admin/expert-credentials/${revisionId}/review`)
+			.post(`/api/v1/admin/expert-credentials/${revisionId}/review`)
 			.set('x-test-role', 'ADMIN')
 			.send({
 				decision: 'APPROVE',
@@ -276,12 +276,14 @@ describe('Credential HTTP contracts (synthetic auth/database/storage)', () => {
 	it('should expose separate suspend/reinstate endpoints with bounded reasons', async () => {
 		for (const action of ['suspend', 'reinstate'])
 			await api()
-				.post(`/admin/expert-credentials/${revisionId}/${action}`)
+				.post(
+					`/api/v1/admin/expert-credentials/${revisionId}/${action}`,
+				)
 				.set('x-test-role', 'ADMIN')
 				.send({ expectedVersion: 1, reason: 'Reviewed.' })
 				.expect(200);
 		await api()
-			.post(`/admin/expert-credentials/${revisionId}/suspend`)
+			.post(`/api/v1/admin/expert-credentials/${revisionId}/suspend`)
 			.set('x-test-role', 'ADMIN')
 			.send({ expectedVersion: 1, reason: ' ' })
 			.expect(400);
@@ -292,15 +294,15 @@ describe('Credential HTTP contracts (synthetic auth/database/storage)', () => {
 			new DocumentBuilder().addBearerAuth().build(),
 		);
 		expect(
-			doc.paths['/expert/me/credentials/{type}'].post?.requestBody,
+			doc.paths['/api/v1/expert/credentials/{type}'].post?.requestBody,
 		).toHaveProperty('content.multipart/form-data');
 		expect(
-			doc.paths['/expert/me/credentials/{revisionId}/document'].get
+			doc.paths['/api/v1/expert/credentials/{revisionId}/document'].get
 				?.responses['200'],
 		).toHaveProperty('content.application/pdf');
 		expect(
-			doc.paths['/admin/expert-credentials/{revisionId}/review'].post
-				?.security,
+			doc.paths['/api/v1/admin/expert-credentials/{revisionId}/review']
+				.post?.security,
 		).toBeDefined();
 		expect(doc.components?.schemas?.ReviewCredentialDto).toHaveProperty(
 			'properties.documentMatches',

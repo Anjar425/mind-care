@@ -16,7 +16,7 @@ export const syntheticConfig: RuntimeEnvironment = {
 	MAIL_FROM: 'test@example.test',
 	VERIFICATION_TOKEN_EXPIRY_MINUTES: 15,
 	RESET_TOKEN_EXPIRY_MINUTES: 15,
-	CORS_ORIGIN: 'http://localhost:5173',
+	CORS_ORIGIN: ['http://localhost:5173'],
 	RATE_LIMIT_WINDOW_MS: 60000,
 	RATE_LIMIT_GENERAL: 120,
 	RATE_LIMIT_LOGIN: 5,
@@ -34,6 +34,12 @@ export const syntheticConfig: RuntimeEnvironment = {
 	CREDENTIAL_UPLOAD_RATE_LIMIT: 3,
 	CREDENTIAL_REMINDER_LEAD_DAYS: 30,
 	CREDENTIAL_REMINDER_HOUR: 9,
+	TRUST_PROXY_HOPS: 0,
+	SWAGGER_MODE: 'public',
+	ACCESS_TOKEN_TTL_SECONDS: 900,
+	SESSION_TTL_DAYS: 7,
+	DB_POOL_MAX: 10,
+	DB_STATEMENT_TIMEOUT_MS: 15000,
 };
 export const runtimeConfigMock = {
 	get: jest.fn((key: keyof RuntimeEnvironment) => syntheticConfig[key]),

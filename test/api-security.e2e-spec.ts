@@ -9,9 +9,7 @@ import { AuthController } from '@/api/public/auth/auth.controller';
 import { AuthService } from '@/domain/identity/auth.service';
 import { ApiRateLimitGuard } from '@/api/common/rate-limit/api-rate-limit.guard';
 import { setupApplication } from '@/api/app.setup';
-import { setupSwagger } from '@/api/common/swagger/setup-swagger';
 import { ResponseInterceptor } from '@/api/common/interceptors/response.interceptor';
-import { GlobalExceptionFilter } from '@/api/common/errors/global-exception.filter';
 import { HealthController } from '@/api/health/health.controller';
 import { HealthService } from '@/api/health/health.service';
 import { PrismaService } from '@/infrastructure/prisma/prisma.service';
@@ -63,15 +61,24 @@ describe('Local HTTP security (isolated database/mail)', () => {
 		app = module.createNestApplication<INestApplication<Server>>({
 			logger: false,
 		});
-		if (mode === 'production') {
-			// Exercise documentation registration independently: production bootstrap itself is gated.
-			app.useGlobalFilters(new GlobalExceptionFilter());
-			setupSwagger(app, mode);
-		} else
-			setupApplication(app, {
-				NODE_ENV: mode,
-				CORS_ORIGIN: syntheticConfig.CORS_ORIGIN,
-			});
+		// Production as recommended for the first deployment (D11): same-origin (no CORS),
+		// one trusted reverse proxy, Swagger off.
+		setupApplication(
+			app,
+			mode === 'production'
+				? {
+						NODE_ENV: 'production',
+						CORS_ORIGIN: [],
+						SWAGGER_MODE: 'off',
+						TRUST_PROXY_HOPS: 1,
+					}
+				: {
+						NODE_ENV: mode,
+						CORS_ORIGIN: syntheticConfig.CORS_ORIGIN,
+						SWAGGER_MODE: 'public',
+						TRUST_PROXY_HOPS: 0,
+					},
+		);
 		await app.init();
 		await app.listen(0, '127.0.0.1');
 	}
@@ -93,7 +100,7 @@ describe('Local HTTP security (isolated database/mail)', () => {
 
 	it('should permit the temporary frontend when bearer preflight is requested', async () => {
 		const response = await api()
-			.options('/auth/login')
+			.options('/api/v1/auth/login')
 			.set('Origin', 'http://localhost:5173')
 			.set('Access-Control-Request-Method', 'POST')
 			.set('Access-Control-Request-Headers', 'authorization,content-type')
@@ -147,8 +154,38 @@ describe('Local HTTP security (isolated database/mail)', () => {
 				{ post?: { responses: Record<string, unknown> } }
 			>;
 		};
-		expect(body.paths['/auth/login'].post?.responses).toHaveProperty('429');
+		expect(body.paths['/api/v1/auth/login'].post?.responses).toHaveProperty(
+			'429',
+		);
 		expect(body.paths).toHaveProperty('/health/ready');
+	});
+	it('should send HSTS and a strict CSP and no CORS headers in the production profile', async () => {
+		await app.close();
+		await create('production');
+		const response = await api()
+			.get('/health/live')
+			.set('Origin', 'https://other.example.test')
+			.expect(200);
+		expect(response.headers['strict-transport-security']).toBe(
+			'max-age=31536000; includeSubDomains',
+		);
+		expect(response.headers['content-security-policy']).toContain(
+			'upgrade-insecure-requests',
+		);
+		expect(response.headers['x-powered-by']).toBeUndefined();
+		expect(response.headers['access-control-allow-origin']).toBeUndefined();
+	});
+	it('should rate-limit by the forwarded client address behind one trusted proxy', async () => {
+		await app.close();
+		await create('production');
+		const from = (ip: string) =>
+			api()
+				.post('/api/v1/auth/login')
+				.set('X-Forwarded-For', ip)
+				.send(credentials);
+		for (let i = 0; i < 5; i++) await from('203.0.113.10').expect(200);
+		await from('203.0.113.10').expect(429);
+		await from('203.0.113.11').expect(200);
 	});
 	it('should omit UI and raw schemas when production documentation gating is selected', async () => {
 		await app.close();
@@ -164,19 +201,20 @@ describe('Local HTTP security (isolated database/mail)', () => {
 	});
 	it('should enforce the shared login limit when endpoints, casing and slashes vary', async () => {
 		for (const path of [
-			'/auth/login',
-			'/auth/expert/login',
-			'/auth/admin/login',
-			'/AUTH/LOGIN/',
-			'/auth/login',
+			'/api/v1/auth/login',
+			'/api/v1/auth/expert/login',
+			'/api/v1/auth/admin/login',
+			'/API/V1/AUTH/LOGIN/',
+			'/api/v1/auth/login',
 		])
 			await api().post(path).send(credentials).expect(200);
 		const response = await api()
-			.post('/auth/expert/login')
+			.post('/api/v1/auth/expert/login')
 			.send(credentials)
 			.expect(429);
 		expect(response.body).toEqual({
 			statusCode: 429,
+			code: 'RATE_LIMITED',
 			message: ['Too many requests'],
 			error: 'Too Many Requests',
 		});
@@ -190,29 +228,29 @@ describe('Local HTTP security (isolated database/mail)', () => {
 			confirm_password: credentials.password,
 		};
 		for (const path of [
-			'/auth/user/register',
-			'/auth/expert/register',
-			'/auth/user/register',
+			'/api/v1/auth/user/register',
+			'/api/v1/auth/expert/register',
+			'/api/v1/auth/user/register',
 		])
 			await api().post(path).send(body).expect(201);
-		await api().post('/auth/expert/register').send(body).expect(429);
+		await api().post('/api/v1/auth/expert/register').send(body).expect(429);
 	});
 	it('should combine general quotas when requests use different endpoints', async () => {
 		for (let i = 0; i < 120; i++)
 			await api()
-				.get(`/security-test/${i % 2 ? 'a' : 'b'}`)
+				.get(`/api/v1/security-test/${i % 2 ? 'a' : 'b'}`)
 				.expect(200);
 		await api().get('/health/live').expect(429);
 	});
 	it('should ignore spoofed forwarded addresses when the same peer exhausts its quota', async () => {
 		for (let i = 0; i < 5; i++)
 			await api()
-				.post('/auth/login')
+				.post('/api/v1/auth/login')
 				.set('X-Forwarded-For', `192.0.2.${i + 1}`)
 				.send(credentials)
 				.expect(200);
 		await api()
-			.post('/auth/login')
+			.post('/api/v1/auth/login')
 			.set('X-Forwarded-For', '192.0.2.99')
 			.send(credentials)
 			.expect(429);
@@ -229,6 +267,7 @@ describe('Local HTTP security (isolated database/mail)', () => {
 		const ready = await api().get('/health/ready').expect(503);
 		expect(ready.body).toEqual({
 			statusCode: 503,
+			code: 'UNAVAILABLE',
 			message: ['Internal server error'],
 			error: 'Service Unavailable',
 		});

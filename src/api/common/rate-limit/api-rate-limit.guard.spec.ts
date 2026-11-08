@@ -1,7 +1,37 @@
 import { ExecutionContext } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
+import { Reflector } from '@nestjs/core';
 import { ApiRateLimitGuard } from './api-rate-limit.guard';
+import { RateLimit, type RateLimitAction } from './rate-limit.decorator';
+
+// Former route templates of the limited handlers, kept so each case reads like a request.
+const HANDLER_ACTIONS: Record<string, RateLimitAction> = {
+	'/screenings/qdss': 'screening-qdss',
+	'/screenings/dass42': 'screening-dass42',
+	'/expert/credentials/:type': 'credential-upload',
+	'/auth/login': 'login',
+	'/auth/expert/login': 'login',
+	'/auth/admin/login': 'login',
+	'/auth/user/register': 'register',
+	'/auth/expert/register': 'register',
+	'/auth/forgot-password': 'forgot',
+	'/auth/send-verification': 'verification',
+	'/auth/refresh': 'refresh',
+};
+const handlers = new Map<string, () => void>();
+function handlerFor(path: string, method: string) {
+	const key = method + ' ' + path;
+	if (!handlers.has(key)) {
+		const handler = () => undefined;
+		const action = HANDLER_ACTIONS[path];
+		// Only the POST handlers carry an action limit.
+		if (action && method === 'POST')
+			RateLimit(action)(handler, 'handle', { value: handler });
+		handlers.set(key, handler);
+	}
+	return handlers.get(key)!;
+}
 import {
 	runtimeConfigProvider,
 	runtimeConfigMock,
@@ -36,6 +66,7 @@ describe('ApiRateLimitGuard', () => {
 		method = 'POST',
 	): ExecutionContext {
 		return {
+			getHandler: () => handlerFor(path, method),
 			switchToHttp: () => ({
 				getRequest: () => ({
 					method,
@@ -53,6 +84,7 @@ describe('ApiRateLimitGuard', () => {
 		module = await Test.createTestingModule({
 			providers: [
 				runtimeConfigProvider,
+				Reflector,
 				ApiRateLimitGuard,
 				{
 					provide: ThrottlerStorage,

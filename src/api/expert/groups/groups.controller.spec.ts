@@ -17,11 +17,11 @@ describe('GroupsController HTTP contract', () => {
 		jest.clearAllMocks();
 	});
 	it('should require authentication and EXPERT role before reading private data', async () => {
-		await h.api().get(`/expert/groups/${id}`).expect(401);
+		await h.api().get(`/api/v1/expert/groups/${id}`).expect(401);
 		for (const role of ['ADMIN', 'USER'])
 			await h
 				.api()
-				.get(`/expert/groups/${id}`)
+				.get(`/api/v1/expert/groups/${id}`)
 				.set('x-test-role', role)
 				.expect(403);
 		expect(h.mocks.transaction).not.toHaveBeenCalled();
@@ -37,7 +37,7 @@ describe('GroupsController HTTP contract', () => {
 		async (body) => {
 			await h
 				.api()
-				.post('/expert/groups')
+				.post('/api/v1/expert/groups')
 				.set(groupHeaders())
 				.send(body)
 				.expect(400);
@@ -47,14 +47,14 @@ describe('GroupsController HTTP contract', () => {
 	it('should protect detail/metadata/eligibility/audit and enforce stale-state and reason validation', async () => {
 		const response = await h
 			.api()
-			.get(`/expert/groups/${id}`)
+			.get(`/api/v1/expert/groups/${id}`)
 			.set(groupHeaders())
 			.expect(200);
 		expect(response.headers['cache-control']).toBe('no-store');
 		const group = httpData<PrivateGroupDto>(response);
 		await h
 			.api()
-			.put(`/expert/groups/${id}`)
+			.put(`/api/v1/expert/groups/${id}`)
 			.set(groupHeaders(2))
 			.send({
 				name: 'Changed',
@@ -64,7 +64,7 @@ describe('GroupsController HTTP contract', () => {
 			.expect(403);
 		await h
 			.api()
-			.put(`/expert/groups/${id}`)
+			.put(`/api/v1/expert/groups/${id}`)
 			.set(groupHeaders())
 			.send({
 				name: 'Changed',
@@ -74,26 +74,30 @@ describe('GroupsController HTTP contract', () => {
 			.expect(409);
 		await h
 			.api()
-			.post(`/expert/groups/${id}/archive`)
+			.post(`/api/v1/expert/groups/${id}/archive`)
 			.set(groupHeaders())
 			.send({ expectedStateHash: group.stateHash, reason: '  ' })
 			.expect(400);
 		await h
 			.api()
-			.get(`/expert/groups/${id}/audit`)
+			.get(`/api/v1/expert/groups/${id}/audit`)
 			.set(groupHeaders(2))
 			.expect(403);
 		await h
 			.api()
-			.get(`/expert/groups/${id}/eligibility`)
+			.get(`/api/v1/expert/groups/${id}/eligibility`)
 			.set(groupHeaders(3))
 			.expect(403);
 		await h
 			.api()
-			.get('/expert/me/groups?limit=101')
+			.get('/api/v1/expert/groups?limit=101')
 			.set(groupHeaders())
 			.expect(400);
-		await h.api().get('/expert/me/groups').set(groupHeaders()).expect(200);
+		await h
+			.api()
+			.get('/api/v1/expert/groups')
+			.set(groupHeaders())
+			.expect(200);
 	});
 	it('should keep create/metadata detail independent of missing reference data and hide raw database failure', async () => {
 		h.mocks.tx.dASS21.findMany.mockRejectedValue(
@@ -101,18 +105,18 @@ describe('GroupsController HTTP contract', () => {
 		);
 		await h
 			.api()
-			.post('/expert/groups')
+			.post('/api/v1/expert/groups')
 			.set(groupHeaders())
 			.send({ name: 'Group', description: 'Description' })
 			.expect(201);
 		await h
 			.api()
-			.get(`/expert/groups/${id}`)
+			.get(`/api/v1/expert/groups/${id}`)
 			.set(groupHeaders())
 			.expect(200);
 		const response = await h
 			.api()
-			.get(`/expert/groups/${id}/eligibility`)
+			.get(`/api/v1/expert/groups/${id}/eligibility`)
 			.set(groupHeaders())
 			.expect(503);
 		expect(JSON.stringify(response.body)).not.toContain('sensitive source');
