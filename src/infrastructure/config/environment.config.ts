@@ -25,6 +25,9 @@ export interface RuntimeEnvironment {
 	RATE_LIMIT_REFRESH: number;
 	RATE_LIMIT_SCREENING_QDSS: number;
 	RATE_LIMIT_SCREENING_DASS42: number;
+	// Per submitted email, whatever the client IP.
+	RATE_LIMIT_LOGIN_ACCOUNT: number;
+	RATE_LIMIT_EMAIL_ACCOUNT: number;
 	HEALTH_CHECK_TIMEOUT_MS: number;
 	CREDENTIAL_STORAGE_ROOT: string;
 	CREDENTIAL_ENCRYPTION_KEY: string;
@@ -258,6 +261,16 @@ export function validateEnvironment(
 		),
 		RATE_LIMIT_SCREENING_DASS42: integer(
 			'RATE_LIMIT_SCREENING_DASS42',
+			5,
+			Number.MAX_SAFE_INTEGER,
+		),
+		RATE_LIMIT_LOGIN_ACCOUNT: integer(
+			'RATE_LIMIT_LOGIN_ACCOUNT',
+			10,
+			Number.MAX_SAFE_INTEGER,
+		),
+		RATE_LIMIT_EMAIL_ACCOUNT: integer(
+			'RATE_LIMIT_EMAIL_ACCOUNT',
 			5,
 			Number.MAX_SAFE_INTEGER,
 		),

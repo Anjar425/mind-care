@@ -51,7 +51,7 @@ export function createRulesMocks() {
 		revisions: StoredRuleRevision[];
 		audits: RuleAudit[];
 		nextId: number;
-		conclusions: { id: number; category: string; severty: string }[];
+		conclusions: { id: number; category: string; severity: string }[];
 	} = {
 		rules: [],
 		revisions: [],
@@ -60,7 +60,7 @@ export function createRulesMocks() {
 		conclusions: REFERENCE_CONCLUSIONS.map((c, i) => ({
 			id: i + 1,
 			category: c.category,
-			severty: c.severity,
+			severity: c.severity,
 		})),
 	};
 	const snapshot = (rule: Rule) =>
@@ -161,7 +161,7 @@ export function createRulesMocks() {
 				({
 					where,
 				}: {
-					where: { OR: { category: string; severty: string }[] };
+					where: { OR: { category: string; severity: string }[] };
 				}) =>
 					Promise.resolve(
 						structuredClone(
@@ -169,7 +169,7 @@ export function createRulesMocks() {
 								where.OR.some(
 									(p) =>
 										p.category === c.category &&
-										p.severty === c.severty,
+										p.severity === c.severity,
 								),
 							),
 						),
@@ -180,7 +180,10 @@ export function createRulesMocks() {
 					where,
 				}: {
 					where: {
-						category_severty: { category: string; severty: string };
+						category_severity: {
+							category: string;
+							severity: string;
+						};
 					};
 				}) =>
 					Promise.resolve(
@@ -188,9 +191,9 @@ export function createRulesMocks() {
 							state.conclusions.find(
 								(c) =>
 									c.category ===
-										where.category_severty.category &&
-									c.severty ===
-										where.category_severty.severty,
+										where.category_severity.category &&
+									c.severity ===
+										where.category_severity.severity,
 							) ?? null,
 						),
 					),
@@ -318,7 +321,7 @@ export function createRulesMocks() {
 							data.canonicalAntecedent as Prisma.JsonValue,
 						conclusion: {
 							category: conclusion.category,
-							severty: conclusion.severty,
+							severity: conclusion.severity,
 						},
 						premises: data.premises.create,
 					} as StoredRuleRevision;

@@ -6,46 +6,55 @@ import { MailService } from '../infrastructure/mail/mail.service';
 import { CredentialStorageService } from '../domain/credentials/credential-storage.service';
 import { DAY_MS } from '../domain/credentials/credential-policy';
 import type { RuntimeEnvironment } from '../infrastructure/config/environment.config';
+import { JobLeaseService } from '../infrastructure/prisma/job-lease.service';
+import { PostgresThrottlerStorage } from '../infrastructure/rate-limit/postgres-throttler.storage';
+
+// Longer than one tick needs; frees itself if the holding instance dies mid-run.
+const LEASE_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class CredentialMaintenanceJob {
 	private readonly logger = new Logger(CredentialMaintenanceJob.name);
-	private running = false;
 	constructor(
 		private readonly prisma: PrismaService,
 		private readonly mail: MailService,
 		private readonly storage: CredentialStorageService,
 		private readonly config: ConfigService<RuntimeEnvironment, true>,
+		private readonly leases: JobLeaseService,
+		private readonly rateLimits: PostgresThrottlerStorage,
 	) {}
 	@Cron('0 * * * * *', {
 		name: 'credential-maintenance',
 		waitForCompletion: true,
 	})
 	async tick() {
-		if (this.running) return;
-		this.running = true;
 		try {
-			await this.purge();
-			await this.reconcile();
-			const hour = Number(
-				new Intl.DateTimeFormat('en-GB', {
-					timeZone: 'Asia/Jakarta',
-					hour: '2-digit',
-					hourCycle: 'h23',
-				}).format(new Date()),
+			// One instance at a time; the others skip this tick.
+			await this.leases.run('credential-maintenance', LEASE_MS, () =>
+				this.maintain(),
 			);
-			if (
-				hour ===
-				this.config.get('CREDENTIAL_REMINDER_HOUR', { infer: true })
-			)
-				await this.remind();
 		} catch {
 			this.logger.warn(
 				'Credential maintenance incomplete; retry scheduled',
 			);
-		} finally {
-			this.running = false;
 		}
+	}
+	private async maintain() {
+		await this.purge();
+		await this.rateLimits.purgeExpired();
+		await this.reconcile();
+		const hour = Number(
+			new Intl.DateTimeFormat('en-GB', {
+				timeZone: 'Asia/Jakarta',
+				hour: '2-digit',
+				hourCycle: 'h23',
+			}).format(new Date()),
+		);
+		if (
+			hour ===
+			this.config.get('CREDENTIAL_REMINDER_HOUR', { infer: true })
+		)
+			await this.remind();
 	}
 	async purge(now = new Date()) {
 		const rows = await this.prisma.credentialRevision.findMany({
@@ -126,7 +135,7 @@ export class CredentialMaintenanceJob {
 				current.status !== 'APPROVED' ||
 				current.expiresAt <= new Date() ||
 				current.expert.user.role !== 'EXPERT' ||
-				!current.expert.user.email_verified_at
+				!current.expert.user.emailVerifiedAt
 			) {
 				await this.prisma.credentialReminder.updateMany({
 					where: { id: row.id, leaseUntil: lease },

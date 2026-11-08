@@ -7,8 +7,8 @@ interface TestUser {
 	email: string;
 	password: string;
 	role: UserRole;
-	email_verified_at: Date | null;
-	created_at: Date;
+	emailVerifiedAt: Date | null;
+	createdAt: Date;
 }
 interface TestSession {
 	id: string;
@@ -50,8 +50,8 @@ export function createAuthMemoryStore(password: string) {
 			email: `${role.toLowerCase()}@example.com`,
 			password,
 			role,
-			email_verified_at: null,
-			created_at: new Date(),
+			emailVerifiedAt: null,
+			createdAt: new Date(),
 		});
 	}
 	const sessionMatches = (row: TestSession, where: SessionWhere) =>
@@ -116,12 +116,12 @@ export function createAuthMemoryStore(password: string) {
 				({
 					data,
 				}: {
-					data: Omit<TestUser, 'id' | 'email_verified_at'>;
+					data: Omit<TestUser, 'id' | 'emailVerifiedAt'>;
 				}) => {
 					const row = {
 						...data,
 						id: randomUUID(),
-						email_verified_at: null,
+						emailVerifiedAt: null,
 					};
 					users.set(row.id, row);
 					return Promise.resolve(row);

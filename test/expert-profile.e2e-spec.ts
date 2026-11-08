@@ -200,7 +200,7 @@ describe('Owner expert profile HTTP (real services, synthetic persistence/auth)'
 	it('should deny an unverified owner before opening a write transaction', async () => {
 		mocks.prisma.user.findUnique.mockResolvedValue({
 			role: 'EXPERT',
-			email_verified_at: null,
+			emailVerifiedAt: null,
 		});
 		await put(validProfileSubmission()).expect(403);
 		expect(mocks.prisma.$transaction).not.toHaveBeenCalled();

@@ -56,14 +56,14 @@ export class GroupsService {
 			select: {
 				id: true,
 				role: true,
-				email_verified_at: true,
+				emailVerifiedAt: true,
 				expert: { select: { id: true } },
 			},
 		});
 		if (
 			!user ||
 			user.role !== 'EXPERT' ||
-			(verified && !user.email_verified_at)
+			(verified && !user.emailVerifiedAt)
 		)
 			throw new ForbiddenException(
 				'Current verified expert account required',

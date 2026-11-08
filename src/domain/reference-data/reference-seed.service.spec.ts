@@ -101,7 +101,7 @@ describe('ReferenceSeedService', () => {
 				.conclusion.find(
 					(row) =>
 						row.category === bundle.conclusions[0].category &&
-						row.severty === bundle.conclusions[0].severty,
+						row.severity === bundle.conclusions[0].severity,
 				)?.id,
 		).toBe(901);
 	});

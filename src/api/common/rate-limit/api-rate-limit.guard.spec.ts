@@ -1,4 +1,4 @@
-import { ExecutionContext } from '@nestjs/common';
+import { ExecutionContext, Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
 import { Reflector } from '@nestjs/core';
@@ -171,13 +171,16 @@ describe('ApiRateLimitGuard', () => {
 			true,
 		);
 	});
-	it('should fail closed when storage is unavailable', async () => {
+	it('should fail closed with a generic 503 when storage is unavailable for login', async () => {
+		jest.spyOn(Logger.prototype, 'warn').mockImplementation(
+			() => undefined,
+		);
 		jest.spyOn(storage, 'increment').mockRejectedValue(
 			new Error('synthetic-store-failure'),
 		);
-		await expect(guard.canActivate(context('/auth/login'))).rejects.toThrow(
-			'synthetic-store-failure',
-		);
+		const failure = guard.canActivate(context('/auth/login'));
+		await expect(failure).rejects.toMatchObject({ status: 503 });
+		await expect(failure).rejects.not.toThrow('synthetic-store-failure');
 	});
 	it('should use configured quotas and windows when local settings change', async () => {
 		const settings = {

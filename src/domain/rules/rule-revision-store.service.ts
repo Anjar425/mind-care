@@ -17,7 +17,7 @@ export const RULE_REVISION_SELECT = {
 	antecedentHash: true,
 	conclusionId: true,
 	createdAt: true,
-	conclusion: { select: { category: true, severty: true } },
+	conclusion: { select: { category: true, severity: true } },
 	premises: {
 		orderBy: { position: 'asc' },
 		select: {
@@ -61,7 +61,7 @@ export class RuleRevisionStore {
 					JSON.stringify(compiled.antecedent) ||
 				row.conclusion.category !==
 					compiled.original.conclusion.category ||
-				row.conclusion.severty !==
+				row.conclusion.severity !==
 					compiled.original.conclusion.severity ||
 				row.premises.length !== compiled.original.premises.length
 			)

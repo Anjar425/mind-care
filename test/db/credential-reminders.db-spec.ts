@@ -4,6 +4,8 @@ import { CredentialMaintenanceJob } from '../../src/jobs/credential-maintenance.
 import type { CredentialStorageService } from '../../src/domain/credentials/credential-storage.service';
 import type { MailService } from '../../src/infrastructure/mail/mail.service';
 import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
+import { JobLeaseService } from '../../src/infrastructure/prisma/job-lease.service';
+import { PostgresThrottlerStorage } from '../../src/infrastructure/rate-limit/postgres-throttler.storage';
 import { createPrisma, createUser, dbConfig, resetData } from './support';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -59,6 +61,8 @@ describe('Credential expiry reminders on PostgreSQL', () => {
 			{ sendCredentialExpiryReminder: send } as unknown as MailService,
 			storage,
 			dbConfig(),
+			new JobLeaseService(prisma),
+			new PostgresThrottlerStorage(prisma),
 		);
 	}
 

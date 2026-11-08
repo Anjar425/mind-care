@@ -236,7 +236,7 @@ describe('ExpertPreferencesService', () => {
 			service.replace(ownerId, validPreferencesSubmission()),
 		).rejects.toThrow('STR and SIP');
 		mocks.expert.user.name = 'Example Expert';
-		mocks.expert.user.email_verified_at = null as unknown as Date;
+		mocks.expert.user.emailVerifiedAt = null as unknown as Date;
 		await expect(
 			service.replace(ownerId, validPreferencesSubmission()),
 		).rejects.toThrow('STR and SIP');

@@ -18,7 +18,7 @@ const SAFE_USER_SELECT = {
 	name: true,
 	email: true,
 	role: true,
-	created_at: true,
+	createdAt: true,
 } as const;
 
 @Injectable()
@@ -37,7 +37,7 @@ export class UserService {
 					name: createUserDto.name,
 					password: hashedPassword,
 					role: createUserDto.role,
-					created_at: new Date(),
+					createdAt: new Date(),
 				},
 				select: SAFE_USER_SELECT,
 			});
@@ -66,7 +66,7 @@ export class UserService {
 				name: true,
 				email: true,
 				role: true,
-				created_at: true,
+				createdAt: true,
 			},
 		});
 
@@ -81,7 +81,7 @@ export class UserService {
 				name: true,
 				email: true,
 				role: true,
-				created_at: true,
+				createdAt: true,
 			},
 		});
 
@@ -104,7 +104,7 @@ export class UserService {
 			name: user.name,
 			email: user.email,
 			role: user.role,
-			created_at: user.created_at,
+			createdAt: user.createdAt,
 		};
 	}
 
@@ -134,7 +134,7 @@ export class UserService {
 					name: true,
 					email: true,
 					role: true,
-					created_at: true,
+					createdAt: true,
 				},
 			});
 		} catch (error: unknown) {

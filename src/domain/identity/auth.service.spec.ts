@@ -76,7 +76,7 @@ describe('AuthService', () => {
 				role,
 			});
 			expect(result.user).not.toHaveProperty('password');
-			expect(result.user).not.toHaveProperty('email_verified_at');
+			expect(result.user).not.toHaveProperty('emailVerifiedAt');
 		},
 	);
 
@@ -210,7 +210,7 @@ describe('AuthService', () => {
 	it('should avoid issuing another verification token when email is already verified', async () => {
 		users.findForAuthentication.mockResolvedValue({
 			...user,
-			email_verified_at: new Date(),
+			emailVerifiedAt: new Date(),
 		});
 		await service.sendVerificationEmail(user.email);
 		expect(prisma.emailVerificationToken.create).not.toHaveBeenCalled();
@@ -241,7 +241,7 @@ describe('AuthService', () => {
 		await expect(service.verifyAccount(token)).resolves.toBeUndefined();
 		expect(prisma.user.update).toHaveBeenCalledWith({
 			where: { id: user.id },
-			data: { email_verified_at: expect.any(Date) as unknown },
+			data: { emailVerifiedAt: expect.any(Date) as unknown },
 			select: { id: true },
 		});
 	});

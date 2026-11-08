@@ -57,7 +57,7 @@ export class AuthService {
 				name: user.name,
 				email: user.email,
 				role: user.role,
-				created_at: user.created_at,
+				created_at: user.createdAt,
 			},
 		};
 	}
@@ -98,7 +98,7 @@ export class AuthService {
 			const user = await this.userService.findForAuthentication(
 				normalizeEmail(email),
 			);
-			if (!user || user.email_verified_at) return;
+			if (!user || user.emailVerifiedAt) return;
 			const rawToken = generateToken();
 			const expiresAt = this.expiry(
 				this.config.get('VERIFICATION_TOKEN_EXPIRY_MINUTES', {
@@ -164,7 +164,7 @@ export class AuthService {
 					);
 				await tx.user.update({
 					where: { id: verification.userId },
-					data: { email_verified_at: now },
+					data: { emailVerifiedAt: now },
 					select: { id: true },
 				});
 			},

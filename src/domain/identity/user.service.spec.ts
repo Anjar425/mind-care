@@ -39,14 +39,14 @@ describe('UserService', () => {
 				email: 'user@example.com',
 				password: expect.stringMatching(/^\$2/) as unknown,
 				role: 'USER',
-				created_at: expect.any(Date) as unknown,
+				createdAt: expect.any(Date) as unknown,
 			},
 			select: {
 				id: true,
 				name: true,
 				email: true,
 				role: true,
-				created_at: true,
+				createdAt: true,
 			},
 		});
 		const call: unknown = prisma.user.create.mock.calls[0][0];
@@ -168,7 +168,7 @@ describe('UserService', () => {
 				name: true,
 				email: true,
 				role: true,
-				created_at: true,
+				createdAt: true,
 			},
 		});
 	});
@@ -196,7 +196,7 @@ describe('UserService', () => {
 					name: true,
 					email: true,
 					role: true,
-					created_at: true,
+					createdAt: true,
 				},
 			}),
 		);

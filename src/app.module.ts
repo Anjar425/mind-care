@@ -11,6 +11,8 @@ import { HealthModule } from './api/health/health.module';
 import { PublicApiModule } from './api/public/public-api.module';
 import type { RuntimeEnvironment } from './infrastructure/config/environment.config';
 import { RuntimeConfigModule } from './infrastructure/config/runtime-config.module';
+import { PostgresThrottlerStorage } from './infrastructure/rate-limit/postgres-throttler.storage';
+import { RateLimitStoreModule } from './infrastructure/rate-limit/rate-limit-store.module';
 import { JobsModule } from './jobs/jobs.module';
 
 // Composition root: HTTP audiences (api/*), background jobs and runtime configuration.
@@ -19,13 +21,25 @@ import { JobsModule } from './jobs/jobs.module';
 	imports: [
 		RuntimeConfigModule,
 		ThrottlerModule.forRootAsync({
-			inject: [ConfigService],
-			useFactory: (config: ConfigService<RuntimeEnvironment, true>) => [
-				{
-					ttl: config.get('RATE_LIMIT_WINDOW_MS', { infer: true }),
-					limit: config.get('RATE_LIMIT_GENERAL', { infer: true }),
-				},
-			],
+			imports: [RateLimitStoreModule],
+			inject: [ConfigService, PostgresThrottlerStorage],
+			// Counters live in PostgreSQL so every API instance enforces one shared quota.
+			useFactory: (
+				config: ConfigService<RuntimeEnvironment, true>,
+				storage: PostgresThrottlerStorage,
+			) => ({
+				throttlers: [
+					{
+						ttl: config.get('RATE_LIMIT_WINDOW_MS', {
+							infer: true,
+						}),
+						limit: config.get('RATE_LIMIT_GENERAL', {
+							infer: true,
+						}),
+					},
+				],
+				storage,
+			}),
 		}),
 		HealthModule,
 		PublicApiModule,

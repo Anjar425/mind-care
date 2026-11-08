@@ -64,7 +64,7 @@ export class ExpertCredentialsService {
 		if (
 			!user ||
 			user.role !== 'EXPERT' ||
-			(verified && !user.email_verified_at)
+			(verified && !user.emailVerifiedAt)
 		)
 			throw new ForbiddenException('Verified expert account is required');
 		return user;
@@ -287,7 +287,7 @@ export class ExpertCredentialsService {
 						row.holderName !== row.expert.user.name ||
 						row.expiresAt <= now ||
 						row.expert.user.role !== 'EXPERT' ||
-						!row.expert.user.email_verified_at)
+						!row.expert.user.emailVerifiedAt)
 				)
 					throw new BadRequestException(
 						'Approval requires matching document metadata, current verified identity and unexpired credential',

@@ -123,7 +123,7 @@ describe('ExpertProfileService', () => {
 		expect(mocks.prisma.weight.upsert).not.toHaveBeenCalled();
 	});
 	it('should recheck current verified email inside the transaction', async () => {
-		mocks.expert.user.email_verified_at = null as unknown as Date;
+		mocks.expert.user.emailVerifiedAt = null as unknown as Date;
 		await expect(
 			service.submit(ownerId, validProfileSubmission()),
 		).rejects.toThrow('STR and SIP');

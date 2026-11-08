@@ -12,7 +12,7 @@ export const credentialUser = () => ({
 	name: 'Example Expert',
 	role: 'EXPERT' as const,
 	email: 'synthetic@example.test',
-	email_verified_at: new Date('2026-01-01'),
+	emailVerifiedAt: new Date('2026-01-01'),
 });
 export const credentialExpert = () => ({
 	id: expertId,

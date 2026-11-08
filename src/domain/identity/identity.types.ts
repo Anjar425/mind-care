@@ -18,7 +18,7 @@ export interface CreateUserInput {
 	name: string;
 	password: string;
 	role: UserRole;
-	email_verified_at?: string;
+	emailVerifiedAt?: string;
 }
 
 export interface UpdateUserInput {

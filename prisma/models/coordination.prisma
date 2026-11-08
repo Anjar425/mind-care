@@ -1,0 +1,19 @@
+/// Rate-limit counters shared by every API instance. The table is UNLOGGED (contents are
+/// dropped after a database crash, which only resets counters) and is updated through the
+/// rate_limit_hit() function created in the same migration. Keys are SHA-256 hashes.
+model RateLimitBucket {
+  key          String    @id
+  hits         Int
+  windowEndsAt DateTime  @db.Timestamptz(3)
+  blockedUntil DateTime? @db.Timestamptz(3)
+
+  @@index([windowEndsAt])
+}
+
+/// Single-runner lease for scheduled work: an instance runs a job only while it holds the
+/// lease, so purges and reconciles never run concurrently across instances.
+model JobLease {
+  name       String   @id
+  holder     String
+  leaseUntil DateTime @db.Timestamptz(3)
+}

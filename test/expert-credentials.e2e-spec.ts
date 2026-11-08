@@ -60,7 +60,7 @@ describe('Credential HTTP contracts (synthetic auth/database/storage)', () => {
 		});
 		userLookup.mockResolvedValue({
 			role: 'EXPERT',
-			email_verified_at: new Date(),
+			emailVerifiedAt: new Date(),
 		});
 		const module = await Test.createTestingModule({
 			imports: [ThrottlerModule.forRoot([{ ttl: 60000, limit: 120 }])],
@@ -169,7 +169,7 @@ describe('Credential HTTP contracts (synthetic auth/database/storage)', () => {
 	it('should deny unverified uploads before multipart storage', async () => {
 		userLookup.mockResolvedValue({
 			role: 'EXPERT',
-			email_verified_at: null,
+			emailVerifiedAt: null,
 		});
 		await upload().expect(403);
 		expect(service.submit).not.toHaveBeenCalled();

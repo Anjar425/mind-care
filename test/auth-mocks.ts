@@ -40,6 +40,6 @@ export const account = {
 	email: 'user@example.com',
 	role: 'USER' as const,
 	password: 'synthetic-password-hash',
-	email_verified_at: null,
-	created_at: new Date('2026-01-01T00:00:00.000Z'),
+	emailVerifiedAt: null,
+	createdAt: new Date('2026-01-01T00:00:00.000Z'),
 };

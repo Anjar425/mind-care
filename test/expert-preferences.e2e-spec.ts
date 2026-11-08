@@ -277,7 +277,7 @@ describe('Expert preference HTTP (real services; synthetic auth and persistence)
 		expect(mocks.tx.preferences.upsert).not.toHaveBeenCalled();
 	});
 	it('should deny unverified owners before starting the mutation transaction', async () => {
-		mocks.expert.user.email_verified_at = null as unknown as Date;
+		mocks.expert.user.emailVerifiedAt = null as unknown as Date;
 		await put(validPreferencesSubmission()).expect(403);
 		expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
 	});

@@ -123,6 +123,8 @@ describe('validateEnvironment', () => {
 				SESSION_TTL_DAYS: 7,
 				DB_POOL_MAX: 10,
 				DB_STATEMENT_TIMEOUT_MS: 15000,
+				RATE_LIMIT_LOGIN_ACCOUNT: 10,
+				RATE_LIMIT_EMAIL_ACCOUNT: 5,
 			}),
 		);
 	});
@@ -177,6 +179,8 @@ describe('validateEnvironment', () => {
 		['CREDENTIAL_UPLOAD_RATE_LIMIT', '0'],
 		['CREDENTIAL_REMINDER_LEAD_DAYS', '31'],
 		['CREDENTIAL_REMINDER_HOUR', '24'],
+		['RATE_LIMIT_LOGIN_ACCOUNT', '0'],
+		['RATE_LIMIT_EMAIL_ACCOUNT', '1.5'],
 		['TRUST_PROXY_HOPS', '4'],
 		['TRUST_PROXY_HOPS', '-1'],
 		['SWAGGER_MODE', 'private'],

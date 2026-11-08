@@ -56,7 +56,7 @@ describe('Current group eligibility and public catalog', () => {
 		[
 			'unverified email',
 			(e) => {
-				e.user.email_verified_at = null;
+				e.user.emailVerifiedAt = null;
 			},
 		],
 		[

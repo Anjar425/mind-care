@@ -432,7 +432,7 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 			.get('/api/v1/auth/verify')
 			.query({ token })
 			.expect(200);
-		expect(store.users.get('USER')?.email_verified_at).toBeInstanceOf(Date);
+		expect(store.users.get('USER')?.emailVerifiedAt).toBeInstanceOf(Date);
 		await request(app.getHttpServer())
 			.get('/api/v1/auth/verify')
 			.query({ token })

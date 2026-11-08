@@ -12,7 +12,7 @@ const approved = () => ({
 	user: {
 		name: 'Example Expert',
 		role: 'EXPERT',
-		email_verified_at: now as Date | null,
+		emailVerifiedAt: now as Date | null,
 	},
 	credentialRevisions: (['STR', 'SIP'] as const).map((type) => ({
 		type,
@@ -132,7 +132,7 @@ describe('Credential policy', () => {
 	it('should reject revoked role or email verification without relying on a scheduler', () => {
 		const expert = approved();
 		expert.user.role = 'USER';
-		expert.user.email_verified_at = null;
+		expert.user.emailVerifiedAt = null;
 		expect(credentialEligibility(expert, now).reasons).toEqual(
 			expect.arrayContaining([
 				'EMAIL_UNVERIFIED',
