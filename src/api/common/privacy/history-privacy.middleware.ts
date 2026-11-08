@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { errorCodeFor } from '../errors/error-policies';
+import { requestIdOf } from '../observability/request-observability.middleware';
 const MAX_REQUEST_BYTES = 48 * 1024;
 // Registered before Nest's parsers/guards, including malformed and unauthenticated requests.
 export function historyPrivacyMiddleware(
@@ -18,15 +19,19 @@ export function historyPrivacyMiddleware(
 	const reject = (status: number) => {
 		if (finished) return;
 		finished = true;
+		const code = errorCodeFor(status, 'history');
+		const requestId = requestIdOf(req);
+		if (res.locals) res.locals.errorCode = code;
 		res.status(status).json({
 			statusCode: status,
-			code: errorCodeFor(status, 'history'),
+			code,
 			message: [
 				status === 413
 					? 'History request exceeds capacity'
 					: 'Invalid history JSON request',
 			],
 			error: 'History request rejected',
+			...(requestId && { requestId }),
 		});
 	};
 	if (

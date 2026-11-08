@@ -46,6 +46,12 @@
 						},
 						"type": "array"
 					},
+					"requestId": {
+						"description": "Correlation id of this request, also sent as the X-Request-Id header. Quote it when reporting a problem; it carries no personal data.",
+						"example": "0b6f8e2a-4c1d-4f7a-9a51-2f3c1d8e7b90",
+						"format": "uuid",
+						"type": "string"
+					},
 					"statusCode": {
 						"description": "HTTP error status",
 						"example": 400,
@@ -56,7 +62,8 @@
 					"statusCode",
 					"code",
 					"message",
-					"error"
+					"error",
+					"requestId"
 				],
 				"type": "object"
 			},
@@ -1236,6 +1243,12 @@
 						},
 						"type": "array"
 					},
+					"requestId": {
+						"description": "Correlation id of this request, also sent as the X-Request-Id header. Quote it when reporting a problem; it carries no personal data.",
+						"example": "0b6f8e2a-4c1d-4f7a-9a51-2f3c1d8e7b90",
+						"format": "uuid",
+						"type": "string"
+					},
 					"statusCode": {
 						"description": "HTTP error status",
 						"example": 400,
@@ -1246,7 +1259,8 @@
 					"statusCode",
 					"code",
 					"message",
-					"error"
+					"error",
+					"requestId"
 				],
 				"type": "object"
 			},

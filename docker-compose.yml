@@ -57,6 +57,10 @@ services:
       MAIL_HOST: mailpit
       MAIL_PORT: '1025'
       MAIL_SECURE: 'false'
+      # Internal metrics: reachable from the compose network, deliberately not published.
+      METRICS_PORT: '9464'
+    expose:
+      - '9464'
     ports:
       - '${API_PORT:-3000}:3000'
     volumes:

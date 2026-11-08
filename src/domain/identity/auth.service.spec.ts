@@ -10,6 +10,7 @@ import { hashToken } from '@/domain/identity/token.util';
 import { account, createPrismaMock } from '../../../test/auth-mocks';
 import { AuthService } from './auth.service';
 import { AuthSessionService } from './auth-session.service';
+import { securityEventsProvider } from '../../../test/security-events.mock';
 
 describe('AuthService', () => {
 	let service: AuthService;
@@ -48,6 +49,7 @@ describe('AuthService', () => {
 			.mockImplementation(() => undefined);
 		module = await Test.createTestingModule({
 			providers: [
+				securityEventsProvider,
 				runtimeConfigProvider,
 				AuthService,
 				{ provide: PrismaService, useValue: prisma },

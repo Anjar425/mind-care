@@ -125,6 +125,9 @@ describe('validateEnvironment', () => {
 				DB_STATEMENT_TIMEOUT_MS: 15000,
 				RATE_LIMIT_LOGIN_ACCOUNT: 10,
 				RATE_LIMIT_EMAIL_ACCOUNT: 5,
+				LOG_LEVEL: 'info',
+				METRICS_PORT: 0,
+				SECURITY_EVENT_RETENTION_DAYS: 365,
 			}),
 		);
 	});
@@ -181,6 +184,10 @@ describe('validateEnvironment', () => {
 		['CREDENTIAL_REMINDER_HOUR', '24'],
 		['RATE_LIMIT_LOGIN_ACCOUNT', '0'],
 		['RATE_LIMIT_EMAIL_ACCOUNT', '1.5'],
+		['LOG_LEVEL', 'verbose'],
+		['METRICS_PORT', '3000'],
+		['METRICS_PORT', '65536'],
+		['SECURITY_EVENT_RETENTION_DAYS', '29'],
 		['TRUST_PROXY_HOPS', '4'],
 		['TRUST_PROXY_HOPS', '-1'],
 		['SWAGGER_MODE', 'private'],

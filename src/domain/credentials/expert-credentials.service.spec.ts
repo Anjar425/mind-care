@@ -12,6 +12,7 @@ import {
 } from '../../../test/credential-mocks';
 import { ReviewDecision } from '../../api/common/dto/credentials/credential.dto';
 import { Prisma } from '../../infrastructure/prisma/generated/client';
+import { securityEventsProvider } from '../../../test/security-events.mock';
 
 describe('ExpertCredentialsService', () => {
 	let module: TestingModule;
@@ -39,6 +40,7 @@ describe('ExpertCredentialsService', () => {
 		mocks = createCredentialMocks();
 		module = await Test.createTestingModule({
 			providers: [
+				securityEventsProvider,
 				ExpertCredentialsService,
 				{ provide: PrismaService, useValue: mocks.prisma },
 				{ provide: CredentialStorageService, useValue: mocks.storage },

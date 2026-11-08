@@ -4,6 +4,7 @@ import {
 	Injectable,
 	CanActivate,
 	Logger,
+	Optional,
 	ServiceUnavailableException,
 } from '@nestjs/common';
 import { ThrottlerStorage, ThrottlerException } from '@nestjs/throttler';
@@ -13,6 +14,8 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import type { RuntimeEnvironment } from '../../../infrastructure/config/environment.config';
 import { normalizeEmail } from '../../../domain/identity/account-validation.util';
+import { metrics } from '../../../infrastructure/observability/metrics';
+import { SecurityEventService } from '../../../domain/security-events/security-event.service';
 import {
 	RATE_LIMIT_ACTION,
 	RATE_LIMIT_ACTIONS,
@@ -28,6 +31,8 @@ export class ApiRateLimitGuard implements CanActivate {
 		@Inject(ThrottlerStorage) private readonly storage: ThrottlerStorage,
 		private readonly config: ConfigService<RuntimeEnvironment, true>,
 		private readonly reflector: Reflector,
+		// Optional so feature tests can assemble the guard without the audit store.
+		@Optional() private readonly events?: SecurityEventService,
 	) {}
 
 	async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -95,6 +100,9 @@ export class ApiRateLimitGuard implements CanActivate {
 		} catch {
 			// No key, IP or email is logged.
 			this.logger.warn('Rate-limit store unavailable');
+			metrics.rateLimitStoreErrors.inc({
+				outcome: failClosed ? 'refused' : 'allowed',
+			});
 			if (failClosed)
 				throw new ServiceUnavailableException(
 					'Request temporarily unavailable; retry later',
@@ -107,6 +115,9 @@ export class ApiRateLimitGuard implements CanActivate {
 			Math.max(0, limit - result.totalHits),
 		);
 		if (result.isBlocked) {
+			metrics.rateLimitRejections.inc({ limit: name });
+			if (name === 'login' || name === 'login-account')
+				await this.events?.record('LOGIN_RATE_LIMITED');
 			response.setHeader('Retry-After', result.timeToBlockExpire);
 			throw new ThrottlerException('Too many requests');
 		}

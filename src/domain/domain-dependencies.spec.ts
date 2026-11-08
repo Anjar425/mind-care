@@ -59,7 +59,7 @@ function findCycle(graph: Map<string, Set<string>>): string[] | undefined {
 describe('Domain folder dependencies', () => {
 	it('should form an acyclic graph', () => {
 		const graph = folderGraph();
-		expect(graph.size).toBeGreaterThanOrEqual(12);
+		expect(graph.size).toBeGreaterThanOrEqual(13);
 		// Sanity: known edges are discovered, so an empty graph cannot pass silently.
 		expect([...(graph.get('rule-conflicts') ?? [])]).toContain('rules');
 		expect([...(graph.get('screening') ?? [])]).toContain('qdss');

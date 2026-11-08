@@ -24,6 +24,7 @@ import {
 	historyOwner,
 } from './history-mocks';
 import { runtimeConfigProvider, syntheticConfig } from './runtime-config.mock';
+import { securityEventsProvider } from './security-events.mock';
 
 describe('Private history HTTP: actual JWT session guard and services, synthetic persistence', () => {
 	let app: INestApplication<Server>;
@@ -40,6 +41,7 @@ describe('Private history HTTP: actual JWT session guard and services, synthetic
 			],
 			controllers: [HistoryController],
 			providers: [
+				securityEventsProvider,
 				HistoryService,
 				HistoryVaultService,
 				AuthSessionService,

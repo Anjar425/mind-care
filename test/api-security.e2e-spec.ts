@@ -217,6 +217,7 @@ describe('Local HTTP security (isolated database/mail)', () => {
 			code: 'RATE_LIMITED',
 			message: ['Too many requests'],
 			error: 'Too Many Requests',
+			requestId: expect.any(String) as unknown,
 		});
 		expect(response.headers['retry-after']).toBeDefined();
 		expect(login).toHaveBeenCalledTimes(5);
@@ -270,6 +271,7 @@ describe('Local HTTP security (isolated database/mail)', () => {
 			code: 'UNAVAILABLE',
 			message: ['Internal server error'],
 			error: 'Service Unavailable',
+			requestId: expect.any(String) as unknown,
 		});
 		expect(JSON.stringify(errorLog.mock.calls)).not.toContain(
 			'synthetic-private-database-url',

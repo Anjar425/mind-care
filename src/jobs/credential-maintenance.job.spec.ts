@@ -6,6 +6,7 @@ import { PrismaService } from '../infrastructure/prisma/prisma.service';
 import { MailService } from '../infrastructure/mail/mail.service';
 import { JobLeaseService } from '../infrastructure/prisma/job-lease.service';
 import { PostgresThrottlerStorage } from '../infrastructure/rate-limit/postgres-throttler.storage';
+import { SecurityEventService } from '../domain/security-events/security-event.service';
 import { createCredentialMocks } from '../../test/credential-mocks';
 import { runtimeConfigProvider } from '../../test/runtime-config.mock';
 
@@ -38,6 +39,10 @@ describe('CredentialMaintenanceJob', () => {
 				{ provide: CredentialStorageService, useValue: mocks.storage },
 				{ provide: MailService, useValue: mail },
 				{ provide: JobLeaseService, useValue: lease },
+				{
+					provide: SecurityEventService,
+					useValue: { purgeExpired: jest.fn().mockResolvedValue(0) },
+				},
 				{
 					provide: PostgresThrottlerStorage,
 					useValue: { purgeExpired: jest.fn().mockResolvedValue(0) },

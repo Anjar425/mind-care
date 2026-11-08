@@ -6,6 +6,7 @@ import { UserRole } from '@/shared/types/role';
 import { hashToken } from '@/domain/identity/token.util';
 import { account, createPrismaMock } from '../../../test/auth-mocks';
 import { AuthSessionService } from './auth-session.service';
+import { securityEventsProvider } from '../../../test/security-events.mock';
 
 describe('AuthSessionService', () => {
 	let service: AuthSessionService;
@@ -30,6 +31,7 @@ describe('AuthSessionService', () => {
 		prisma = createPrismaMock();
 		module = await Test.createTestingModule({
 			providers: [
+				securityEventsProvider,
 				runtimeConfigProvider,
 				AuthSessionService,
 				{ provide: PrismaService, useValue: prisma },

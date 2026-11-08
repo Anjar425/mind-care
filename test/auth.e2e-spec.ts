@@ -35,6 +35,7 @@ import { MailService } from '@/infrastructure/mail/mail.service';
 import { UserRole } from '@/shared/types/role';
 import { ResponseInterceptor } from '@/api/common/interceptors/response.interceptor';
 import { createAuthMemoryStore } from './auth-memory-store';
+import { securityEventsProvider } from './security-events.mock';
 
 @Controller('auth-test')
 @ErrorPolicy('auth')
@@ -74,6 +75,7 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 			],
 			controllers: [AuthController, ProtectedTestController],
 			providers: [
+				securityEventsProvider,
 				runtimeConfigProvider,
 				AuthService,
 				AuthSessionService,

@@ -7,6 +7,7 @@ import {
 	type MailMessage,
 	type MailTransport,
 } from './mail-transport';
+import { metrics } from '../observability/metrics';
 
 function formatMinutes(minutes: number): string {
 	return `${minutes} minute${minutes === 1 ? '' : 's'}`;
@@ -81,9 +82,14 @@ export class MailService implements OnModuleDestroy {
 	}
 
 	private async send(message: Omit<MailMessage, 'from'>): Promise<void> {
-		await this.transport.sendMail({
-			from: this.config.get('MAIL_FROM', { infer: true }),
-			...message,
-		});
+		try {
+			await this.transport.sendMail({
+				from: this.config.get('MAIL_FROM', { infer: true }),
+				...message,
+			});
+		} catch (error) {
+			metrics.emailSendFailures.inc();
+			throw error;
+		}
 	}
 }

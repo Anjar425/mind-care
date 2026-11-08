@@ -28,6 +28,7 @@ import {
 } from './screening-mocks';
 import { groupUserId } from './groups-mocks';
 import { qdssAdmin } from './qdss-mocks';
+import { securityEventsProvider } from './security-events.mock';
 
 describe('Public screening HTTP with real JWT/session and numerical services; synthetic storage', () => {
 	let app: INestApplication<Server>;
@@ -45,6 +46,7 @@ describe('Public screening HTTP with real JWT/session and numerical services; sy
 			],
 			controllers: [ScreeningsController],
 			providers: [
+				securityEventsProvider,
 				ScreeningsService,
 				ScreeningPresentationService,
 				OptionalScreeningAuthGuard,

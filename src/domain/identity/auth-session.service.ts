@@ -14,6 +14,7 @@ import type {
 	SessionUser,
 } from './identity.types';
 import { IDENTITY_TX } from './identity-persistence';
+import { SecurityEventService } from '../security-events/security-event.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const USER_SELECT = { id: true, name: true, email: true, role: true } as const;
@@ -28,6 +29,7 @@ export class AuthSessionService {
 		private readonly prisma: PrismaService,
 		private readonly jwt: JwtService,
 		private readonly config: ConfigService<RuntimeEnvironment, true>,
+		private readonly events: SecurityEventService,
 	) {}
 
 	async create(
@@ -93,6 +95,9 @@ export class AuthSessionService {
 		const tokenHash = hashToken(rawToken);
 		if (!this.matchesHash(session.token, tokenHash)) {
 			await this.revoke(claims.sub, claims.sid);
+			await this.events.record('REFRESH_REUSE_DETECTED', {
+				subjectUserId: claims.sub,
+			});
 			this.deny();
 		}
 		return {
@@ -124,6 +129,9 @@ export class AuthSessionService {
 		});
 		if (updated.count !== 1) {
 			await this.revoke(principal.sub, principal.sid);
+			await this.events.record('REFRESH_REUSE_DETECTED', {
+				subjectUserId: principal.sub,
+			});
 			this.deny();
 		}
 		return tokens;

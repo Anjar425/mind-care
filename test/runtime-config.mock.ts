@@ -42,6 +42,9 @@ export const syntheticConfig: RuntimeEnvironment = {
 	SESSION_TTL_DAYS: 7,
 	DB_POOL_MAX: 10,
 	DB_STATEMENT_TIMEOUT_MS: 15000,
+	LOG_LEVEL: 'silent',
+	METRICS_PORT: 0,
+	SECURITY_EVENT_RETENTION_DAYS: 365,
 };
 export const runtimeConfigMock = {
 	get: jest.fn((key: keyof RuntimeEnvironment) => syntheticConfig[key]),

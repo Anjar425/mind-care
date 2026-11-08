@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CredentialsModule } from '../domain/credentials/credentials.module';
+import { SecurityEventsModule } from '../domain/security-events/security-events.module';
 import { MailModule } from '../infrastructure/mail/mail.module';
 import { PrismaModule } from '../infrastructure/prisma/prisma.module';
 import { JobLeaseService } from '../infrastructure/prisma/job-lease.service';
@@ -15,6 +16,7 @@ import { CredentialMaintenanceJob } from './credential-maintenance.job';
 		MailModule,
 		CredentialsModule,
 		RateLimitStoreModule,
+		SecurityEventsModule,
 	],
 	providers: [JobLeaseService, CredentialMaintenanceJob],
 })

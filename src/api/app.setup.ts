@@ -8,6 +8,7 @@ import {
 import { PATH_METADATA } from '@nestjs/common/constants';
 import type { RequestHandler } from 'express';
 import helmet from 'helmet';
+import type { Logger } from 'pino';
 import type { RuntimeEnvironment } from '../infrastructure/config/environment.config';
 import {
 	API_BASE_PATH,
@@ -20,6 +21,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { historyPrivacyMiddleware } from './common/privacy/history-privacy.middleware';
 import { screeningPrivacyMiddleware } from './common/privacy/screening-privacy.middleware';
 import { setupSwagger } from './common/swagger/setup-swagger';
+import { requestObservability } from './common/observability/request-observability.middleware';
 import { ScreeningsController } from './public/screenings/screenings.controller';
 
 /** Probes stay at /health/* for container health checks and load balancers. */
@@ -83,6 +85,7 @@ export function securityHeaders(production: boolean) {
 export function setupApplication(
 	app: INestApplication,
 	config: ApplicationSettings,
+	options: { accessLog?: Logger } = {},
 ): void {
 	configureRouting(app);
 	// Client IPs (rate limits) come from X-Forwarded-For only across the configured proxy hops.
@@ -92,6 +95,14 @@ export function setupApplication(
 				set(name: string, value: unknown): void;
 			}
 		).set('trust proxy', config.TRUST_PROXY_HOPS);
+	// First: request id, request context, access log and latency metric for every request,
+	// including those the privacy middleware rejects before body parsing.
+	app.use(
+		requestObservability({
+			trustIncomingRequestId: config.TRUST_PROXY_HOPS > 0,
+			logger: options.accessLog,
+		}),
+	);
 	app.use(securityHeaders(config.NODE_ENV === 'production'));
 	// No allowed origin means a same-origin deployment: no CORS headers at all.
 	if (config.CORS_ORIGIN.length > 0)

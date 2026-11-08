@@ -7,6 +7,7 @@ import {
 	Logger,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { requestIdOf } from '../observability/request-observability.middleware';
 import { DEFAULT_MESSAGE } from './default-messages';
 import {
 	isErrorCode,
@@ -26,7 +27,7 @@ interface ErrorBody {
 }
 
 /**
- * The only exception filter. Renders `{ statusCode, code, message[], error }` and never exposes
+ * The only exception filter. Renders `{ statusCode, code, message[], error, requestId }` and never exposes
  * stacks, URLs, request bodies or submitted values. Registered globally without a policy;
  * `@ErrorPolicy(...)` binds a controller-scoped instance with one.
  */
@@ -148,5 +149,15 @@ function parseHttpBody(
 
 function send(response: Response, body: ErrorBody): void {
 	const { statusCode, code, message, error } = body;
-	response.status(statusCode).json({ statusCode, code, message, error });
+	// Express keeps the request on the response; the id is absent only outside the app pipeline.
+	const requestId = requestIdOf((response as { req?: unknown }).req);
+	// Read by the access log line.
+	if (response.locals) response.locals.errorCode = code;
+	response.status(statusCode).json({
+		statusCode,
+		code,
+		message,
+		error,
+		...(requestId && { requestId }),
+	});
 }

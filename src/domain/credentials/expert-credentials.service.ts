@@ -31,6 +31,7 @@ import type {
 	Prisma,
 } from '../../infrastructure/prisma/generated/client';
 import { withTransaction } from '../../infrastructure/prisma/transaction';
+import { SecurityEventService } from '../security-events/security-event.service';
 
 export function credentialSummary(row: CredentialRevision) {
 	return {
@@ -54,6 +55,7 @@ export class ExpertCredentialsService {
 		private readonly prisma: PrismaService,
 		private readonly storage: CredentialStorageService,
 		private readonly eligibility: CredentialEligibilityService,
+		private readonly events: SecurityEventService,
 	) {}
 	private async owner(
 		db: Prisma.TransactionClient,
@@ -254,7 +256,8 @@ export class ExpertCredentialsService {
 		revisionId: string,
 		dto: ReviewCredentialInput,
 	) {
-		return withTransaction(
+		let expertUserId: string | undefined;
+		const result = await withTransaction(
 			this.prisma,
 			async (tx) => {
 				await this.admin(tx, adminId);
@@ -332,10 +335,16 @@ export class ExpertCredentialsService {
 						reason: dto.reason,
 					},
 				});
+				expertUserId = row.expert.userId;
 				return { version: expert.credentialVersion };
 			},
 			CREDENTIAL_TX,
 		);
+		await this.events.record('CREDENTIAL_REVIEWED', {
+			actorUserId: adminId,
+			subjectUserId: expertUserId,
+		});
+		return result;
 	}
 	async setSuspension(
 		adminId: string,

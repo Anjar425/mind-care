@@ -27,6 +27,7 @@ import type {
 	RegisterInput,
 } from './identity.types';
 import { IDENTITY_TX } from './identity-persistence';
+import { SecurityEventService } from '../security-events/security-event.service';
 
 @Injectable()
 export class AuthService {
@@ -38,6 +39,7 @@ export class AuthService {
 		private readonly sessions: AuthSessionService,
 		private readonly mailService: MailService,
 		private readonly config: ConfigService<RuntimeEnvironment, true>,
+		private readonly events: SecurityEventService,
 	) {}
 
 	async register(dto: RegisterInput, role: UserRole) {
@@ -79,9 +81,18 @@ export class AuthService {
 			user.role !== (role as string) ||
 			!(await bcrypt.compare(dto.password, user.password))
 		) {
+			// The subject is known only when the email belongs to an account.
+			await this.events.record('LOGIN_FAILED', {
+				subjectUserId: user?.id,
+			});
 			throw new UnauthorizedException('Invalid credentials');
 		}
-		return this.sessions.create(user.id, user.password, role);
+		const tokens = await this.sessions.create(user.id, user.password, role);
+		await this.events.record('LOGIN_SUCCEEDED', {
+			actorUserId: user.id,
+			subjectUserId: user.id,
+		});
+		return tokens;
 	}
 
 	refresh(principal: RefreshPrincipal) {
@@ -90,6 +101,10 @@ export class AuthService {
 
 	async logout(principal: AccessPrincipal) {
 		await this.sessions.revoke(principal.sub, principal.sid);
+		await this.events.record('SESSION_REVOKED', {
+			actorUserId: principal.sub,
+			subjectUserId: principal.sub,
+		});
 		return { message: 'Logged out successfully' };
 	}
 
@@ -135,6 +150,7 @@ export class AuthService {
 
 	async verifyAccount(token: string): Promise<void> {
 		assertOpaqueToken(token);
+		let verifiedUserId: string | undefined;
 		await withTransaction(
 			this.prismaService,
 			async (tx) => {
@@ -167,9 +183,14 @@ export class AuthService {
 					data: { emailVerifiedAt: now },
 					select: { id: true },
 				});
+				verifiedUserId = verification.userId;
 			},
 			IDENTITY_TX,
 		);
+		await this.events.record('EMAIL_VERIFIED', {
+			actorUserId: verifiedUserId,
+			subjectUserId: verifiedUserId,
+		});
 	}
 
 	async forgotPassword(email: string): Promise<void> {
@@ -199,6 +220,9 @@ export class AuthService {
 				},
 				IDENTITY_TX,
 			);
+			await this.events.record('PASSWORD_RESET_REQUESTED', {
+				subjectUserId: user.id,
+			});
 			await this.mailService.sendPasswordResetEmail(
 				normalizeEmail(user.email),
 				rawToken,
@@ -255,6 +279,12 @@ export class AuthService {
 			},
 			IDENTITY_TX,
 		);
+		await this.events.record('PASSWORD_RESET_COMPLETED', {
+			subjectUserId: reset.userId,
+		});
+		await this.events.record('SESSIONS_REVOKED_ALL', {
+			subjectUserId: reset.userId,
+		});
 		return { message: 'Password reset successfully' };
 	}
 

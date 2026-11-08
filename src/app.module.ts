@@ -11,15 +11,18 @@ import { HealthModule } from './api/health/health.module';
 import { PublicApiModule } from './api/public/public-api.module';
 import type { RuntimeEnvironment } from './infrastructure/config/environment.config';
 import { RuntimeConfigModule } from './infrastructure/config/runtime-config.module';
+import { LoggingModule } from './infrastructure/observability/logging.module';
 import { PostgresThrottlerStorage } from './infrastructure/rate-limit/postgres-throttler.storage';
 import { RateLimitStoreModule } from './infrastructure/rate-limit/rate-limit-store.module';
 import { JobsModule } from './jobs/jobs.module';
+import { SecurityEventsModule } from './domain/security-events/security-events.module';
 
 // Composition root: HTTP audiences (api/*), background jobs and runtime configuration.
 // Domain and infrastructure modules are imported by the modules that use them.
 @Module({
 	imports: [
 		RuntimeConfigModule,
+		LoggingModule,
 		ThrottlerModule.forRootAsync({
 			imports: [RateLimitStoreModule],
 			inject: [ConfigService, PostgresThrottlerStorage],
@@ -47,6 +50,8 @@ import { JobsModule } from './jobs/jobs.module';
 		ExpertApiModule,
 		AdminApiModule,
 		JobsModule,
+		// Lets the global rate-limit guard record LOGIN_RATE_LIMITED.
+		SecurityEventsModule,
 	],
 	providers: [
 		ResponseInterceptor,

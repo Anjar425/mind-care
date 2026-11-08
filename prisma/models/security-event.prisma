@@ -1,0 +1,30 @@
+enum SecurityEventType {
+    LOGIN_SUCCEEDED
+    LOGIN_FAILED
+    LOGIN_RATE_LIMITED
+    REFRESH_REUSE_DETECTED
+    SESSION_REVOKED
+    SESSIONS_REVOKED_ALL
+    PASSWORD_RESET_REQUESTED
+    PASSWORD_RESET_COMPLETED
+    EMAIL_VERIFIED
+    CREDENTIAL_REVIEWED
+}
+
+/// Append-only audit of security-relevant actions. User ids are plain columns (no foreign
+/// key) so events outlive account deletion. No email, token, raw IP or user-agent string is
+/// stored: ipHash is an HMAC, userAgentFamily one of browser | mobile | cli | other.
+model SecurityEvent {
+    id              String            @id @default(uuid())
+    type            SecurityEventType
+    actorUserId     String?
+    subjectUserId   String?
+    ipHash          String?
+    userAgentFamily String?
+    requestId       String?
+    createdAt       DateTime          @default(now())
+
+    @@index([createdAt])
+    @@index([subjectUserId, createdAt])
+    @@index([type, createdAt])
+}

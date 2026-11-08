@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import type { RuntimeEnvironment } from '../../infrastructure/config/environment.config';
 import { MailModule } from '../../infrastructure/mail/mail.module';
 import { PrismaModule } from '../../infrastructure/prisma/prisma.module';
+import { SecurityEventsModule } from '../security-events/security-events.module';
 import { AuthSessionService } from './auth-session.service';
 import { AuthService } from './auth.service';
 import { UserService } from './user.service';
@@ -12,6 +13,7 @@ import { UserService } from './user.service';
 	imports: [
 		PrismaModule,
 		MailModule,
+		SecurityEventsModule,
 		JwtModule.registerAsync({
 			inject: [ConfigService],
 			useFactory: (config: ConfigService<RuntimeEnvironment, true>) => ({

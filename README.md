@@ -125,6 +125,13 @@ docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --bu
 - Every error body is `{ statusCode, code, message[], error }`. `code` is stable and catalogued in `src/shared/contracts/error-codes.ts` (`ErrorCode` in the OpenAPI document); clients branch on `code`, never on `message`. A service may set a catalogued code explicitly with `new HttpException({ message, code }, status)`; history and screening routes always use their fixed, redacted code per status.
 - Action rate limits are declared on the handler with `@RateLimit('login' | 'register' | ...)`; the no-store/body-bound privacy middleware is mounted at the controller's own base path (`PRIVACY_BOUNDARIES` in `src/api/app.setup.ts`). Renaming a route therefore cannot silently drop either.
 
+### Observability
+
+- **Request id.** Every response carries `X-Request-Id` and every error body a `requestId`. Behind a trusted proxy (`TRUST_PROXY_HOPS` > 0) an incoming UUID `X-Request-Id` is reused; otherwise a new one is generated. Quote it when reporting a problem.
+- **Logs.** JSON on stdout (pino via `nestjs-pino`, level `LOG_LEVEL`). One access line per request with an allow-list only: `requestId, method, route` (template, never the URL), `status, durationMs, role, userIdHash, errorCode`. Query strings, headers, bodies, IPs and tokens are never logged; application log calls use constant messages and carry the request id.
+- **Metrics.** `METRICS_PORT` (unset/0 = off) serves Prometheus `GET /metrics` on a separate port that must not be published: `http_request_duration_seconds{route,method,status}`, `rate_limit_rejections_total{limit}`, `rate_limit_store_errors_total{outcome}`, `job_runs_total{job,result}`, `email_send_failures_total`, `security_events_total{type,stored}` and default process metrics. The compose stack enables it on 9464 inside the network.
+- **Security events.** `SecurityEvent` rows for sign-in success/failure/rate limiting, refresh-token reuse, session revocation, password reset request/completion, email verification and admin credential review. Stored: event type, actor/subject user ids, request id, an HMAC of the client IP and a user-agent family (`browser`, `mobile`, `cli`, `other`) — never emails, tokens or raw IPs. Deleted after `SECURITY_EVENT_RETENTION_DAYS` (default 365). Recording never fails a request. A read API for admins comes with admin MFA (Phase 5).
+
 ### Running more than one instance
 
 - **Rate limits are shared.** Counters live in PostgreSQL (UNLOGGED table `RateLimitBucket`, updated atomically by the `rate_limit_hit()` function), so every instance enforces one quota. Keys are SHA-256 hashes; no IP or email is stored.

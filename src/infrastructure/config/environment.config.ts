@@ -45,6 +45,11 @@ export interface RuntimeEnvironment {
 	DB_POOL_MAX: number;
 	// Also bounds how long a transaction may sit idle while holding locks.
 	DB_STATEMENT_TIMEOUT_MS: number;
+	LOG_LEVEL:
+		'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
+	// Internal Prometheus endpoint port; 0 disables it. Never the public PORT.
+	METRICS_PORT: number;
+	SECURITY_EVENT_RETENTION_DAYS: number;
 }
 
 // Errors identify settings, never their submitted values.
@@ -169,6 +174,20 @@ export function validateEnvironment(
 		'',
 	);
 	const corsOrigins = origins('CORS_ORIGIN', frontendUrl, production);
+	const logLevel = raw.LOG_LEVEL ?? 'info';
+	if (
+		typeof logLevel !== 'string' ||
+		![
+			'fatal',
+			'error',
+			'warn',
+			'info',
+			'debug',
+			'trace',
+			'silent',
+		].includes(logLevel)
+	)
+		invalid.add('LOG_LEVEL');
 	const swagger = raw.SWAGGER_MODE ?? (production ? 'off' : 'public');
 	if (swagger !== 'public' && swagger !== 'off') invalid.add('SWAGGER_MODE');
 	const config: RuntimeEnvironment = {
@@ -290,6 +309,14 @@ export function validateEnvironment(
 			1000,
 			60000,
 		),
+		LOG_LEVEL: logLevel as RuntimeEnvironment['LOG_LEVEL'],
+		METRICS_PORT: bounded('METRICS_PORT', 0, 0, 65535),
+		SECURITY_EVENT_RETENTION_DAYS: bounded(
+			'SECURITY_EVENT_RETENTION_DAYS',
+			365,
+			30,
+			3650,
+		),
 	};
 	for (const key of [
 		'CREDENTIAL_ENCRYPTION_KEY',
@@ -304,6 +331,8 @@ export function validateEnvironment(
 		invalid.add('CREDENTIAL_LOOKUP_KEY');
 	if (!/^\.private\/[a-zA-Z0-9_-]+$/.test(config.CREDENTIAL_STORAGE_ROOT))
 		invalid.add('CREDENTIAL_STORAGE_ROOT');
+	if (config.METRICS_PORT !== 0 && config.METRICS_PORT === config.PORT)
+		invalid.add('METRICS_PORT');
 	// Production serves real users over TLS: links and allowed origins must be https.
 	if (production && !config.FRONTEND_URL.startsWith('https://'))
 		invalid.add('FRONTEND_URL');

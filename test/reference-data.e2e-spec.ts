@@ -103,6 +103,7 @@ describe('Reference questionnaire HTTP (isolated database)', () => {
 				code: 'UNAVAILABLE',
 				message: ['Internal server error'],
 				error: 'Service Unavailable',
+				requestId: expect.any(String) as unknown,
 			});
 			expect(response.body).not.toHaveProperty('data');
 		},
@@ -138,6 +139,7 @@ describe('Reference questionnaire HTTP (isolated database)', () => {
 			code: 'RATE_LIMITED',
 			message: ['Too many requests'],
 			error: 'Too Many Requests',
+			requestId: expect.any(String) as unknown,
 		});
 		expect(response.headers['retry-after']).toBeDefined();
 	});

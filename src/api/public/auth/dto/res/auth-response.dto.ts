@@ -1,6 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type { ErrorCode } from '../../../../../shared/contracts/error-codes';
-import { ErrorCodeProperty } from '../../../../common/swagger/error-response.dto';
+import {
+	ErrorCodeProperty,
+	RequestIdProperty,
+} from '../../../../common/swagger/error-response.dto';
 
 export class AuthSuccessResponseDto {
 	@ApiProperty({ description: 'HTTP success status', example: 200 })
@@ -28,6 +31,8 @@ export class AuthErrorResponseDto {
 		example: 'Bad Request',
 	})
 	error!: string;
+	@RequestIdProperty()
+	requestId!: string;
 }
 
 export class AuthMessageResDto {

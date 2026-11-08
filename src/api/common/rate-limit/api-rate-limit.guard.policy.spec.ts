@@ -9,6 +9,7 @@ import {
 } from '../../../../test/runtime-config.mock';
 import { ApiRateLimitGuard } from './api-rate-limit.guard';
 import { RateLimit, type RateLimitAction } from './rate-limit.decorator';
+import { SecurityEventService } from '../../../domain/security-events/security-event.service';
 
 function handler(action?: RateLimitAction) {
 	const fn = () => undefined;
@@ -36,6 +37,7 @@ describe('ApiRateLimitGuard policy', () => {
 	let guard: ApiRateLimitGuard;
 	let storage: ThrottlerStorageService;
 	const increment = jest.fn();
+	const record = jest.fn().mockResolvedValue(undefined);
 
 	beforeEach(async () => {
 		runtimeConfigMock.get.mockImplementation((key) => syntheticConfig[key]);
@@ -50,6 +52,7 @@ describe('ApiRateLimitGuard policy', () => {
 				Reflector,
 				ApiRateLimitGuard,
 				{ provide: ThrottlerStorage, useValue: { increment } },
+				{ provide: SecurityEventService, useValue: { record } },
 			],
 		}).compile();
 		guard = module.get(ApiRateLimitGuard);
@@ -83,6 +86,7 @@ describe('ApiRateLimitGuard policy', () => {
 				),
 			),
 		).rejects.toThrow('Too many requests');
+		expect(record).toHaveBeenCalledWith('LOGIN_RATE_LIMITED');
 		await expect(
 			guard.canActivate(
 				context(

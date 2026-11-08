@@ -37,6 +37,8 @@ import { RuleConflictCoreService } from './rules/conflicts/rule-conflict-core.se
 import { RulesService } from './rules/rules.service';
 import { ScreeningModule } from './screening/screening.module';
 import { ScreeningsService } from './screening/screenings.service';
+import { SecurityEventsModule } from './security-events/security-events.module';
+import { SecurityEventService } from './security-events/security-event.service';
 
 // Every domain module compiles on its own (its imports are complete), exposes its services
 // and registers no HTTP controllers. No database, SMTP server or environment is touched.
@@ -62,6 +64,7 @@ const MODULES: [Type, Type[]][] = [
 	[Dass42Module, [Dass42InferenceService]],
 	[ScreeningModule, [ScreeningsService]],
 	[HistoryModule, [HistoryService, HistoryVaultService]],
+	[SecurityEventsModule, [SecurityEventService]],
 ];
 
 describe('Domain module composition', () => {

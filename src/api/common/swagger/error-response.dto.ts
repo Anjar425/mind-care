@@ -17,6 +17,15 @@ export const ErrorCodeProperty = () =>
 		example: 'VALIDATION_FAILED',
 	});
 
+/** Documents the per-request correlation id carried by every error body. */
+export const RequestIdProperty = () =>
+	ApiProperty({
+		description:
+			'Correlation id of this request, also sent as the X-Request-Id header. Quote it when reporting a problem; it carries no personal data.',
+		format: 'uuid',
+		example: '0b6f8e2a-4c1d-4f7a-9a51-2f3c1d8e7b90',
+	});
+
 export class ErrorResponseDto {
 	@ApiProperty({ description: 'HTTP error status', example: 400 })
 	statusCode!: number;
@@ -36,4 +45,7 @@ export class ErrorResponseDto {
 		example: 'Bad Request',
 	})
 	error!: string;
+
+	@RequestIdProperty()
+	requestId!: string;
 }
