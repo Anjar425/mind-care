@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { createRuntimeConfigOptions } from './runtime-config.options';
-import { syntheticConfig } from '../../../test/runtime-config.mock';
+import { syntheticEnv } from '../../../test/runtime-config.mock';
 
 // Serve a synthetic .env without touching the real file. Every other read (modules, source
 // maps used for Jest stack traces) goes to the real filesystem.
@@ -38,11 +38,9 @@ describe('Runtime configuration loading', () => {
 	});
 
 	it('should load and validate a synthetic env file when development settings are absent from the host', async () => {
-		const contents = Object.entries({
-			...syntheticConfig,
-			NODE_ENV: 'development',
-			RATE_LIMIT_LOGIN: 7,
-		})
+		const contents = Object.entries(
+			syntheticEnv({ NODE_ENV: 'development', RATE_LIMIT_LOGIN: '7' }),
+		)
 			.map(([name, value]) => `${name}=${String(value)}`)
 			.join('\n');
 		const [exists, read] = fakeEnvFile(contents);

@@ -4,6 +4,7 @@ import type { RuntimeEnvironment } from '../../../infrastructure/config/environm
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthSessionService } from '../../../domain/identity/auth-session.service';
+import { ringKeyProvider } from './jwt-key-ring';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -14,7 +15,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 		super({
 			jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
 			ignoreExpiration: false,
-			secretOrKey: config.get('JWT_ACCESS_SECRET', { infer: true }),
+			secretOrKeyProvider: ringKeyProvider(
+				config.get('JWT_ACCESS_KEYS', { infer: true }),
+			),
 			algorithms: ['HS256'],
 		});
 	}

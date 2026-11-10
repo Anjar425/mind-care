@@ -125,6 +125,10 @@ docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --bu
 - Every error body is `{ statusCode, code, message[], error }`. `code` is stable and catalogued in `src/shared/contracts/error-codes.ts` (`ErrorCode` in the OpenAPI document); clients branch on `code`, never on `message`. A service may set a catalogued code explicitly with `new HttpException({ message, code }, status)`; history and screening routes always use their fixed, redacted code per status.
 - Action rate limits are declared on the handler with `@RateLimit('login' | 'register' | ...)`; the no-store/body-bound privacy middleware is mounted at the controller's own base path (`PRIVACY_BOUNDARIES` in `src/api/app.setup.ts`). Renaming a route therefore cannot silently drop either.
 
+### Secrets and key rotation
+
+JWT signing keys and the credential encryption key are key rings (`JWT_ACCESS_KEYS`, `JWT_REFRESH_KEYS`, `CREDENTIAL_ENCRYPTION_KEYS`, each `kid:secret,...`, newest first). Tokens carry the key id in their header and sealed values start with `v2.<kid>.`, so a new key can be introduced without logging anyone out, and `pnpm credentials:reencrypt [--apply]` moves stored credential data to the new key before the old one is removed. Without a ring, the existing single secrets keep working as key `k0`. Procedure: [docs/runbooks/key-rotation.md](docs/runbooks/key-rotation.md).
+
 ### Observability
 
 - **Request id.** Every response carries `X-Request-Id` and every error body a `requestId`. Behind a trusted proxy (`TRUST_PROXY_HOPS` > 0) an incoming UUID `X-Request-Id` is reused; otherwise a new one is generated. Quote it when reporting a problem.
@@ -138,4 +142,88 @@ docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --bu
 - **Per-account limits.** Login (`RATE_LIMIT_LOGIN_ACCOUNT`, default 10) and forgot-password / resend-verification (`RATE_LIMIT_EMAIL_ACCOUNT`, default 5) are also limited per submitted email, whatever the client IP. The 429 body is the same for existing and unknown addresses.
 - **If the counter store is unavailable**, general traffic and screenings continue; login, registration, forgot-password, resend-verification, refresh and credential upload return 503 `UNAVAILABLE`.
 - **Scheduled work runs on one instance at a time.** The credential maintenance job takes a lease row (`JobLease`) each tick; other instances skip. A lease of a crashed instance expires after 10 minutes. The same tick deletes expired rate-limit buckets.
-- **Not yet shared:** credential documents are still on local disk (`.private/`), so more than one instance needs the object-storage step of Phase 3C first.
+- **Credential documents** must use object storage (`STORAGE_DRIVER=s3`) with more than one instance; `local` keeps them under `.private/` on one machine. `pnpm storage:migrate [--apply]` copies existing documents to the bucket and verifies each copy.
+
+### Run with Docker
+
+```bash
+docker compose up --build     # postgres, mailpit, rustfs, one-shot migrate+seed, API on :3000
+```
+
+The `api` service reads `.env` (optional) and overrides `DATABASE_URL` and `MAIL_*` to the compose services. Credential documents persist in the `credentials` volume (`STORAGE_DRIVER=local`); `rustfs` is an S3-compatible store on `127.0.0.1:9100` (console 9101) for the tests and for trying `STORAGE_DRIVER=s3`. Metrics are served on port 9464 inside the compose network only. The runtime image defaults to `NODE_ENV=production`; the compose stack sets `development` explicitly, and `docker-compose.production.yml` switches it to the production profile.
+
+## Quality checks
+
+```bash
+pnpm typecheck      # tsc --noEmit for the server, strict DOM check for client-sdk
+pnpm lint:check     # eslint without auto-fix
+pnpm format:check   # prettier --check
+pnpm test           # every unit and in-memory e2e spec (root jest.config.cjs)
+pnpm test:cov       # same with coverage in coverage/
+pnpm test -- src/domain/identity          # focus on one area (any path pattern)
+```
+
+`pnpm test` never contacts a real database, SMTP server or network. On machines with little free memory (for example with Docker running) add `--maxWorkers=2`.
+
+### Real-PostgreSQL tests
+
+Add the test-only variables from `.env.example` to your `.env` once:
+
+```dotenv
+DB_TEST_DATABASE_URL=postgresql://mindcare:mindcare@127.0.0.1:5432/mindcare_test
+SHADOW_DATABASE_URL=postgresql://mindcare:mindcare@127.0.0.1:5432/mindcare_shadow
+```
+
+Then:
+
+```bash
+docker compose up -d postgres rustfs   # PostgreSQL (creates mindcare_test/_shadow) + S3-compatible storage
+pnpm test:db
+```
+
+A value set in the shell overrides `.env` (PowerShell: `$env:DB_TEST_DATABASE_URL="..."`; bash: `DB_TEST_DATABASE_URL=... pnpm test:db`). The object-storage tests use the compose RustFS by default; `S3_TEST_ENDPOINT`, `S3_TEST_ACCESS_KEY` and `S3_TEST_SECRET_KEY` override it.
+
+`test:db` **drops and recreates** the database in `DB_TEST_DATABASE_URL` (`prisma migrate reset`), seeds reference data, then runs `test/db/**/*.db-spec.ts`: refresh-token races, password-reset revocation, serializable retries, row and advisory locks, reminder leases, history vault concurrency, seeder idempotency, rate limits and job leases shared by two instances, security events, the object-store contract (local and S3), storage migration and a full credential key rotation. It refuses any database whose name does not end in `_test` and never uses `DATABASE_URL`.
+
+### Migrations and API contract
+
+```bash
+pnpm db:drift        # prisma/ schema == prisma/migrations (uses SHADOW_DATABASE_URL)
+pnpm openapi:check   # rebuilds and fails if docs/openapi.json is stale
+```
+
+Regenerate the committed contract with `pnpm build && pnpm openapi:generate` whenever controllers or DTOs change.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `master`:
+
+| Job          | Checks                                                                                                                                                                                                               |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| quality      | typecheck, lint, format, all tests with coverage                                                                                                                                                                     |
+| database     | migrations on an empty PostgreSQL 16, drift check, seeder twice, `test:db` against PostgreSQL and RustFS                                                                                                             |
+| api-contract | `docs/openapi.json` up to date; breaking changes vs. the base branch (accept with the `breaking-change` label)                                                                                                       |
+| image        | builds `runtime` and `migrator` images, starts the compose stack with `docker/smoke.env`, probes `/health/ready`, then restarts the API in the production profile and checks HSTS, `/docs` 404 and a versioned route |
+| audit        | blocks on high or critical production advisories                                                                                                                                                                     |
+
+Dependabot (`.github/dependabot.yml`) opens weekly npm and monthly Actions/Docker update PRs.
+
+### Dependency security exceptions
+
+`pnpm audit` must stay clean. Current measures in `package.json` → `pnpm`:
+
+- `overrides`: `multer`, `glob` and `minimatch` are forced to patched versions until the packages that depend on them update.
+- `patchedDependencies`: `deepmerge@4.3.1` (pulled in by Jest and the Nest CLI) is patched in `patches/` to drop `__proto__`, `constructor` and `prototype` keys, because no upstream release fixes GHSA-gcqx-w48m-w2h4. That GHSA is listed in `auditConfig.ignoreGhsas` only because the version number cannot change.
+
+When Dependabot brings versions that fix these upstream, remove the matching override, patch and ignore entry.
+
+## Privacy rules for contributors
+
+- Never log, persist, cache or send to analytics any screening answer or result of a guest.
+- Never log credential numbers, documents, tokens, passwords or request bodies.
+- History content is encrypted on the client; the server must never hold a key that can decrypt it.
+- No screening-result notifications to third parties.
+
+## License
+
+UNLICENSED — private project.

@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import * as fs from 'node:fs/promises';
 import { CredentialStorageService } from './credential-storage.service';
+import { LocalObjectStore } from '../../infrastructure/storage/local-object.store';
+import { OBJECT_STORE } from '../../infrastructure/storage/object-store';
 import {
 	runtimeConfigProvider,
 	runtimeConfigMock,
@@ -27,7 +29,20 @@ describe('CredentialStorageService', () => {
 		} as Awaited<ReturnType<typeof fs.lstat>>);
 		jest.mocked(fs.writeFile).mockResolvedValue(undefined);
 		module = await Test.createTestingModule({
-			providers: [CredentialStorageService, runtimeConfigProvider],
+			providers: [
+				CredentialStorageService,
+				runtimeConfigProvider,
+				// The real local store over the mocked filesystem: its safety checks are exercised.
+				{
+					provide: OBJECT_STORE,
+					useFactory: () =>
+						new LocalObjectStore(
+							runtimeConfigMock.get(
+								'CREDENTIAL_STORAGE_ROOT',
+							) as string,
+						),
+				},
+			],
 		}).compile();
 		service = module.get(CredentialStorageService);
 	});
@@ -107,12 +122,14 @@ describe('CredentialStorageService', () => {
 		expect(result.objectKey).toMatch(/\.bin$/);
 		expect(fs.writeFile).toHaveBeenCalledWith(
 			expect.stringContaining('.private') as unknown,
-			expect.any(String) as unknown,
+			expect.any(Buffer) as unknown,
 			{ flag: 'wx', mode: 0o600 },
 		);
-		expect(jest.mocked(fs.writeFile).mock.calls[0][1]).not.toContain(
-			'%PDF-',
-		);
+		const written = (
+			jest.mocked(fs.writeFile).mock.calls[0][1] as Buffer
+		).toString('utf8');
+		expect(written).toMatch(/^v2\.k0\./);
+		expect(written).not.toContain('%PDF-');
 	});
 	it('should refuse symlink storage ancestors instead of following them', async () => {
 		jest.mocked(fs.lstat).mockResolvedValue({
@@ -123,12 +140,14 @@ describe('CredentialStorageService', () => {
 		expect(fs.writeFile).not.toHaveBeenCalled();
 	});
 	it('should refuse paths outside the ignored private project directory', async () => {
-		runtimeConfigMock.get.mockImplementation((key) =>
-			key === 'CREDENTIAL_STORAGE_ROOT'
-				? '../outside'
-				: syntheticConfig[key],
+		const outside = new CredentialStorageService(
+			runtimeConfigMock as unknown as ConstructorParameters<
+				typeof CredentialStorageService
+			>[0],
+			new LocalObjectStore('../outside'),
 		);
-		await expect(service.put(pdf())).rejects.toThrow('write failed');
+		await expect(outside.put(pdf())).rejects.toThrow('write failed');
+		expect(fs.writeFile).not.toHaveBeenCalled();
 	});
 	it('should reject traversal object references before reading any document', async () => {
 		await expect(service.read('../secret', 'digest', 1)).rejects.toThrow(
@@ -209,6 +228,7 @@ describe('CredentialStorageService', () => {
 			isFile: () => true,
 			isSymbolicLink: () => false,
 			mtime: new Date('2020-01-01'),
+			mtimeMs: Date.parse('2020-01-01'),
 		} as Awaited<ReturnType<typeof fs.lstat>>);
 		const first = await service.orphanCandidates(new Date());
 		const second = await service.orphanCandidates(new Date());
@@ -217,5 +237,58 @@ describe('CredentialStorageService', () => {
 		expect(second).toHaveLength(100);
 		expect(second).not.toContain(first[0]);
 		expect(third).toContain(entries[200].name);
+	});
+	describe('key rotation', () => {
+		const LEGACY = 'a'.repeat(64);
+		const CURRENT = 'c'.repeat(64);
+		const withRing = (ring: { kid: string; secret: string }[]) =>
+			new CredentialStorageService(
+				{
+					get: (key: string) =>
+						key === 'CREDENTIAL_ENCRYPTION_KEYS'
+							? ring
+							: syntheticConfig[
+									key as keyof typeof syntheticConfig
+								],
+				} as unknown as ConstructorParameters<
+					typeof CredentialStorageService
+				>[0],
+				new LocalObjectStore('.private/credentials'),
+			);
+		const legacyRing = withRing([{ kid: 'k0', secret: LEGACY }]);
+		const rotatedRing = withRing([
+			{ kid: 'k1', secret: CURRENT },
+			{ kid: 'k0', secret: LEGACY },
+		]);
+
+		it('should open values written before key ids existed as k0', () => {
+			const legacy = legacyRing
+				.seal(Buffer.from('STR-1'), 'rev')
+				.slice(6);
+			expect(legacy).not.toMatch(/^v2\./);
+			expect(rotatedRing.open(legacy, 'rev').toString()).toBe('STR-1');
+			expect(rotatedRing.kidOf(legacy)).toBe('k0');
+		});
+
+		it('should seal with the first key and still open the previous key', () => {
+			const old = legacyRing.seal(Buffer.from('STR-1'), 'rev');
+			const fresh = rotatedRing.seal(Buffer.from('STR-2'), 'rev');
+			expect(fresh).toMatch(/^v2\.k1\./);
+			expect(rotatedRing.open(old, 'rev').toString()).toBe('STR-1');
+			expect(rotatedRing.open(fresh, 'rev').toString()).toBe('STR-2');
+		});
+
+		it('should reseal only values that do not use the current key', () => {
+			const old = legacyRing.seal(Buffer.from('STR-1'), 'rev');
+			const moved = rotatedRing.reseal(old, 'rev');
+			expect(rotatedRing.kidOf(moved)).toBe('k1');
+			expect(rotatedRing.reseal(moved, 'rev')).toBe(moved);
+		});
+
+		it('should refuse values sealed with a key that left the ring', () => {
+			const old = legacyRing.seal(Buffer.from('STR-1'), 'rev');
+			const retired = withRing([{ kid: 'k1', secret: CURRENT }]);
+			expect(() => retired.open(old, 'rev')).toThrow('unavailable');
+		});
 	});
 });

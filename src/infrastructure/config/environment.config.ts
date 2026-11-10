@@ -1,9 +1,15 @@
+import { LEGACY_KID, parseKeyRing, type RingKey } from './key-ring';
+
 export interface RuntimeEnvironment {
 	NODE_ENV: 'development' | 'test' | 'production';
 	PORT: number;
 	DATABASE_URL: string;
+	// Current signing secrets (first entry of each ring).
 	JWT_ACCESS_SECRET: string;
 	JWT_REFRESH_SECRET: string;
+	// Key rings: the first key signs, every key verifies (by the token's `kid`).
+	JWT_ACCESS_KEYS: RingKey[];
+	JWT_REFRESH_KEYS: RingKey[];
 	// Public base URL of the web frontend; email links point to its pages.
 	FRONTEND_URL: string;
 	MAIL_HOST: string;
@@ -30,7 +36,9 @@ export interface RuntimeEnvironment {
 	RATE_LIMIT_EMAIL_ACCOUNT: number;
 	HEALTH_CHECK_TIMEOUT_MS: number;
 	CREDENTIAL_STORAGE_ROOT: string;
+	// Current sealing key (first entry of the ring).
 	CREDENTIAL_ENCRYPTION_KEY: string;
+	CREDENTIAL_ENCRYPTION_KEYS: RingKey[];
 	CREDENTIAL_LOOKUP_KEY: string;
 	CREDENTIAL_UPLOAD_MAX_BYTES: number;
 	CREDENTIAL_UPLOAD_RATE_LIMIT: number;
@@ -50,6 +58,15 @@ export interface RuntimeEnvironment {
 	// Internal Prometheus endpoint port; 0 disables it. Never the public PORT.
 	METRICS_PORT: number;
 	SECURITY_EVENT_RETENTION_DAYS: number;
+	// Credential documents: 'local' (.private, single instance) or 's3' (shared bucket).
+	STORAGE_DRIVER: 'local' | 's3';
+	S3_BUCKET: string;
+	S3_REGION: string;
+	// Empty for AWS S3; set for S3-compatible services (RustFS, R2, ...).
+	S3_ENDPOINT: string;
+	// Empty: the AWS default credential chain is used.
+	S3_ACCESS_KEY_ID: string;
+	S3_SECRET_ACCESS_KEY: string;
 }
 
 // Errors identify settings, never their submitted values.
@@ -161,11 +178,53 @@ export function validateEnvironment(
 	const mode = raw.NODE_ENV ?? 'development';
 	if (mode !== 'development' && mode !== 'test' && mode !== 'production')
 		invalid.add('NODE_ENV');
-	const access = text('JWT_ACCESS_SECRET');
-	const refresh = text('JWT_REFRESH_SECRET');
-	if (Buffer.byteLength(access) < 32) invalid.add('JWT_ACCESS_SECRET');
-	if (Buffer.byteLength(refresh) < 32 || refresh === access)
-		invalid.add('JWT_REFRESH_SECRET');
+	// A ring setting (`kid:secret,...`) replaces its single-secret setting; the single secret
+	// alone is the ring [k0]. Errors name whichever setting was used.
+	function ring(
+		ringKey: string,
+		singleKey: string,
+		valid: (secret: string) => boolean,
+	): RingKey[] {
+		if (raw[ringKey] !== undefined) {
+			const parsed = parseKeyRing(raw[ringKey], valid);
+			if (parsed) return parsed;
+			invalid.add(ringKey);
+			return [];
+		}
+		const single = raw[singleKey];
+		if (
+			typeof single === 'string' &&
+			!/[\r\n\0]/.test(single) &&
+			valid(single)
+		)
+			return [{ kid: LEGACY_KID, secret: single }];
+		invalid.add(singleKey);
+		return [];
+	}
+	const jwtSecret = (secret: string) => Buffer.byteLength(secret) >= 32;
+	const accessKeys = ring('JWT_ACCESS_KEYS', 'JWT_ACCESS_SECRET', jwtSecret);
+	const refreshKeys = ring(
+		'JWT_REFRESH_KEYS',
+		'JWT_REFRESH_SECRET',
+		jwtSecret,
+	);
+	if (accessKeys.some((a) => refreshKeys.some((r) => r.secret === a.secret)))
+		invalid.add(
+			raw.JWT_REFRESH_KEYS !== undefined
+				? 'JWT_REFRESH_KEYS'
+				: 'JWT_REFRESH_SECRET',
+		);
+	const hexKey = (secret: string) => /^[a-fA-F0-9]{64}$/.test(secret);
+	const encryptionKeys = ring(
+		'CREDENTIAL_ENCRYPTION_KEYS',
+		'CREDENTIAL_ENCRYPTION_KEY',
+		hexKey,
+	);
+	const storageDriver = raw.STORAGE_DRIVER ?? 'local';
+	if (storageDriver !== 'local' && storageDriver !== 's3')
+		invalid.add('STORAGE_DRIVER');
+	const optionalText = (key: string): string =>
+		raw[key] === undefined || raw[key] === '' ? '' : text(key);
 	const secure = raw.MAIL_SECURE ?? 'false';
 	if (secure !== 'true' && secure !== 'false') invalid.add('MAIL_SECURE');
 	const production = mode === 'production';
@@ -193,7 +252,8 @@ export function validateEnvironment(
 	const config: RuntimeEnvironment = {
 		NODE_ENV: mode as RuntimeEnvironment['NODE_ENV'],
 		CREDENTIAL_STORAGE_ROOT: text('CREDENTIAL_STORAGE_ROOT'),
-		CREDENTIAL_ENCRYPTION_KEY: text('CREDENTIAL_ENCRYPTION_KEY'),
+		CREDENTIAL_ENCRYPTION_KEY: encryptionKeys[0]?.secret ?? '',
+		CREDENTIAL_ENCRYPTION_KEYS: encryptionKeys,
 		CREDENTIAL_LOOKUP_KEY: text('CREDENTIAL_LOOKUP_KEY'),
 		CREDENTIAL_UPLOAD_MAX_BYTES: integer(
 			'CREDENTIAL_UPLOAD_MAX_BYTES',
@@ -213,8 +273,10 @@ export function validateEnvironment(
 		CREDENTIAL_REMINDER_HOUR: integer('CREDENTIAL_REMINDER_HOUR', 9, 23),
 		PORT: integer('PORT', 3000, 65535),
 		DATABASE_URL: url('DATABASE_URL', ['postgres:', 'postgresql:']),
-		JWT_ACCESS_SECRET: access,
-		JWT_REFRESH_SECRET: refresh,
+		JWT_ACCESS_SECRET: accessKeys[0]?.secret ?? '',
+		JWT_REFRESH_SECRET: refreshKeys[0]?.secret ?? '',
+		JWT_ACCESS_KEYS: accessKeys,
+		JWT_REFRESH_KEYS: refreshKeys,
 		FRONTEND_URL: frontendUrl,
 		MAIL_HOST: text('MAIL_HOST'),
 		MAIL_PORT: integer('MAIL_PORT', 587, 65535),
@@ -317,18 +379,42 @@ export function validateEnvironment(
 			30,
 			3650,
 		),
+		STORAGE_DRIVER: storageDriver as RuntimeEnvironment['STORAGE_DRIVER'],
+		S3_BUCKET: optionalText('S3_BUCKET'),
+		S3_REGION: optionalText('S3_REGION') || 'us-east-1',
+		S3_ENDPOINT: optionalText('S3_ENDPOINT'),
+		S3_ACCESS_KEY_ID: optionalText('S3_ACCESS_KEY_ID'),
+		S3_SECRET_ACCESS_KEY: optionalText('S3_SECRET_ACCESS_KEY'),
 	};
-	for (const key of [
-		'CREDENTIAL_ENCRYPTION_KEY',
-		'CREDENTIAL_LOOKUP_KEY',
-	] as const) {
-		if (!/^[a-fA-F0-9]{64}$/.test(config[key])) invalid.add(key);
-	}
+	if (!hexKey(config.CREDENTIAL_LOOKUP_KEY))
+		invalid.add('CREDENTIAL_LOOKUP_KEY');
 	if (
-		config.CREDENTIAL_ENCRYPTION_KEY.toLowerCase() ===
-		config.CREDENTIAL_LOOKUP_KEY.toLowerCase()
+		encryptionKeys.some(
+			(key) =>
+				key.secret.toLowerCase() ===
+				config.CREDENTIAL_LOOKUP_KEY.toLowerCase(),
+		)
 	)
 		invalid.add('CREDENTIAL_LOOKUP_KEY');
+	if (config.STORAGE_DRIVER === 's3') {
+		if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(config.S3_BUCKET))
+			invalid.add('S3_BUCKET');
+		if (!config.S3_ACCESS_KEY_ID !== !config.S3_SECRET_ACCESS_KEY)
+			invalid.add('S3_SECRET_ACCESS_KEY');
+	}
+	if (config.S3_ENDPOINT)
+		try {
+			const endpoint = new URL(config.S3_ENDPOINT);
+			if (
+				!['http:', 'https:'].includes(endpoint.protocol) ||
+				endpoint.username ||
+				endpoint.password ||
+				(production && endpoint.protocol !== 'https:')
+			)
+				invalid.add('S3_ENDPOINT');
+		} catch {
+			invalid.add('S3_ENDPOINT');
+		}
 	if (!/^\.private\/[a-zA-Z0-9_-]+$/.test(config.CREDENTIAL_STORAGE_ROOT))
 		invalid.add('CREDENTIAL_STORAGE_ROOT');
 	if (config.METRICS_PORT !== 0 && config.METRICS_PORT === config.PORT)

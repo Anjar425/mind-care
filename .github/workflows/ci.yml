@@ -59,11 +59,22 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
+      # S3-compatible object storage for the object-store and key-rotation tests.
+      rustfs:
+        image: rustfs/rustfs:1.0.4
+        env:
+          RUSTFS_ACCESS_KEY: mindcare
+          RUSTFS_SECRET_KEY: mindcare-storage
+        ports:
+          - 9100:9000
     env:
       PGPASSWORD: mindcare
       DATABASE_URL: postgresql://mindcare:mindcare@127.0.0.1:5432/mindcare
       SHADOW_DATABASE_URL: postgresql://mindcare:mindcare@127.0.0.1:5432/mindcare_shadow
       DB_TEST_DATABASE_URL: postgresql://mindcare:mindcare@127.0.0.1:5432/mindcare_test
+      S3_TEST_ENDPOINT: http://127.0.0.1:9100
+      S3_TEST_ACCESS_KEY: mindcare
+      S3_TEST_SECRET_KEY: mindcare-storage
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
@@ -86,7 +97,9 @@ jobs:
           pnpm build:seed
           node dist/reference-seed/scripts/seed-reference-data.js --apply
           node dist/reference-seed/scripts/seed-reference-data.js --apply
-      - name: Real-PostgreSQL tests
+      - name: Object storage is ready
+        run: curl --fail --silent --show-error --retry 20 --retry-delay 2 --retry-all-errors http://127.0.0.1:9100/health
+      - name: Real-PostgreSQL and object-storage tests
         run: pnpm test:db
 
   api-contract:

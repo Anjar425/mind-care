@@ -6,6 +6,11 @@ declare module 'passport-jwt' {
 	export interface StrategyOptions {
 		jwtFromRequest: (request: Request) => string | null;
 		secretOrKey?: string | Buffer;
+		secretOrKeyProvider?: (
+			request: Request,
+			rawJwtToken: string,
+			done: (error: Error | null, secret?: string | Buffer) => void,
+		) => void;
 		algorithms?: string[];
 		ignoreExpiration?: boolean;
 		passReqToCallback?: boolean;

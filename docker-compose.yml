@@ -32,6 +32,19 @@ services:
       - '${MAILPIT_UI_PORT:-8025}:8025'
       - '${MAILPIT_SMTP_PORT:-1025}:1025'
 
+  # S3-compatible object storage (RustFS): used by `pnpm test:db` and for trying
+  # STORAGE_DRIVER=s3 locally. Local-only placeholder credentials, not secrets.
+  rustfs:
+    image: rustfs/rustfs:1.0.4
+    environment:
+      RUSTFS_ACCESS_KEY: mindcare
+      RUSTFS_SECRET_KEY: mindcare-storage
+    ports:
+      - '${S3_PORT:-9100}:9000'
+      - '${S3_CONSOLE_PORT:-9101}:9001'
+    volumes:
+      - objects:/data
+
   migrate:
     build:
       context: .
@@ -74,3 +87,4 @@ services:
 volumes:
   pgdata:
   credentials:
+  objects:

@@ -178,13 +178,15 @@ export class AuthSessionService {
 		expiresAt: Date,
 	): SessionTokens {
 		const base = { sub: user.id, sid, role: user.role };
+		// The first key of each ring signs; its id travels in the header for verification.
+		const [access] = this.config.get('JWT_ACCESS_KEYS', { infer: true });
+		const [refresh] = this.config.get('JWT_REFRESH_KEYS', { infer: true });
 		return {
 			accessToken: this.jwt.sign(
 				{ ...base, type: 'access', jti: randomUUID() },
 				{
-					secret: this.config.get('JWT_ACCESS_SECRET', {
-						infer: true,
-					}),
+					secret: access.secret,
+					keyid: access.kid,
 					algorithm: 'HS256',
 					expiresIn: this.config.get('ACCESS_TOKEN_TTL_SECONDS', {
 						infer: true,
@@ -199,9 +201,8 @@ export class AuthSessionService {
 					exp: Math.floor(expiresAt.getTime() / 1000),
 				},
 				{
-					secret: this.config.get('JWT_REFRESH_SECRET', {
-						infer: true,
-					}),
+					secret: refresh.secret,
+					keyid: refresh.kid,
 					algorithm: 'HS256',
 				},
 			),
