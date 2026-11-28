@@ -54,7 +54,7 @@ export interface Questionnaire {
 export interface StoredConclusion {
 	id: number;
 	category: ReferenceConclusion['category'];
-	severty: ReferenceConclusion['severity'];
+	severity: ReferenceConclusion['severity'];
 }
 
 export interface ReferenceSeedBundle {

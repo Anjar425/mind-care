@@ -67,7 +67,7 @@ describe('Group governance (synthetic transactional persistence)', () => {
 		async (kind) => {
 			const e = m.state.experts[0];
 			if (kind === 'role') e.user.role = 'USER';
-			if (kind === 'email') e.user.email_verified_at = null;
+			if (kind === 'email') e.user.emailVerifiedAt = null;
 			if (kind === 'suspension') e.credentialSuspendedAt = new Date();
 			if (kind === 'STR' || kind === 'SIP')
 				e.credentialRevisions.find((r) => r.type === kind)!.expiresAt =

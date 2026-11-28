@@ -16,7 +16,6 @@ model Expert {
     address            String?
     phone              String?
     photo              String?
-    verifiedUntil      DateTime?
     updatedAt          DateTime?
     education          Education?
     publicationsNumber Int?
@@ -37,7 +36,6 @@ model Expert {
     conflictMembers RuleConflictMember[]
     resolutionActions RuleResolutionAction[]
     resolutionParticipants RuleResolutionParticipant[]
-    documents              Document[]
     credentialVersion      Int                       @default(0)
     credentialSuspendedAt  DateTime?
     credentialIdentities   CredentialIdentity[]

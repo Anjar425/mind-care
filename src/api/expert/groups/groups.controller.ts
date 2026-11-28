@@ -4,7 +4,6 @@ import {
 	Get,
 	HttpCode,
 	Param,
-	ParseIntPipe,
 	ParseUUIDPipe,
 	Post,
 	Put,
@@ -34,6 +33,7 @@ import {
 	PrivateGroupDto,
 } from '../../common/dto/groups/group-responses.dto';
 import { GroupResponse } from '../../common/dto/groups/group-api.decorator';
+import { PositiveIntIdPipe } from '../../common/pipes/positive-int-id.pipe';
 
 @ApiTags('Expert groups')
 @ApiBearerAuth()
@@ -54,7 +54,7 @@ export class GroupsController {
 	create(@Req() req: { user: AccessPrincipal }, @Body() dto: CreateGroupDto) {
 		return this.groups.create(req.user.sub, dto);
 	}
-	@Get('me/groups')
+	@Get('groups')
 	@GroupResponse(
 		OwnGroupsPageDto,
 		'List your current memberships, including archived groups',
@@ -69,7 +69,7 @@ export class GroupsController {
 	)
 	detail(
 		@Req() req: { user: AccessPrincipal },
-		@Param('groupId', ParseIntPipe) id: number,
+		@Param('groupId', PositiveIntIdPipe) id: number,
 	) {
 		return this.groups.detail(req.user.sub, id);
 	}
@@ -80,7 +80,7 @@ export class GroupsController {
 	)
 	update(
 		@Req() req: { user: AccessPrincipal },
-		@Param('groupId', ParseIntPipe) id: number,
+		@Param('groupId', PositiveIntIdPipe) id: number,
 		@Body() dto: UpdateGroupDto,
 	) {
 		return this.groups.update(req.user.sub, id, dto);
@@ -92,7 +92,7 @@ export class GroupsController {
 	)
 	assessment(
 		@Req() req: { user: AccessPrincipal },
-		@Param('groupId', ParseIntPipe) id: number,
+		@Param('groupId', PositiveIntIdPipe) id: number,
 	) {
 		return this.eligibility.privateAssessment(req.user.sub, id);
 	}
@@ -104,7 +104,7 @@ export class GroupsController {
 	)
 	leave(
 		@Req() req: { user: AccessPrincipal },
-		@Param('groupId', ParseIntPipe) id: number,
+		@Param('groupId', PositiveIntIdPipe) id: number,
 		@Body() dto: GroupStateDto,
 	) {
 		return this.groups.leave(req.user.sub, id, dto);
@@ -117,7 +117,7 @@ export class GroupsController {
 	)
 	remove(
 		@Req() req: { user: AccessPrincipal },
-		@Param('groupId', ParseIntPipe) id: number,
+		@Param('groupId', PositiveIntIdPipe) id: number,
 		@Param('expertId', new ParseUUIDPipe()) expertId: string,
 		@Body() dto: ReasonedGroupDto,
 	) {
@@ -131,7 +131,7 @@ export class GroupsController {
 	)
 	archive(
 		@Req() req: { user: AccessPrincipal },
-		@Param('groupId', ParseIntPipe) id: number,
+		@Param('groupId', PositiveIntIdPipe) id: number,
 		@Body() dto: ReasonedGroupDto,
 	) {
 		return this.groups.archive(req.user.sub, id, dto);
@@ -143,7 +143,7 @@ export class GroupsController {
 	)
 	audit(
 		@Req() req: { user: AccessPrincipal },
-		@Param('groupId', ParseIntPipe) id: number,
+		@Param('groupId', PositiveIntIdPipe) id: number,
 		@Query() q: GroupPageQuery,
 	) {
 		return this.groups.audits(req.user.sub, id, q);

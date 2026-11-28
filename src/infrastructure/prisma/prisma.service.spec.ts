@@ -31,7 +31,27 @@ describe('PrismaService', () => {
 	it('should use injected database configuration when the adapter is created', () => {
 		expect(PrismaPg).toHaveBeenCalledWith({
 			connectionString: syntheticConfig.DATABASE_URL,
+			max: syntheticConfig.DB_POOL_MAX,
+			statement_timeout: syntheticConfig.DB_STATEMENT_TIMEOUT_MS,
+			idle_in_transaction_session_timeout:
+				syntheticConfig.DB_STATEMENT_TIMEOUT_MS,
 		});
+	});
+	it('should fall back to the documented pool defaults when only DATABASE_URL is configured', () => {
+		jest.clearAllMocks();
+		new PrismaService({
+			get: (key: string) =>
+				key === 'DATABASE_URL'
+					? syntheticConfig.DATABASE_URL
+					: undefined,
+		} as never);
+		expect(PrismaPg).toHaveBeenCalledWith(
+			expect.objectContaining({
+				max: 10,
+				statement_timeout: 15000,
+				idle_in_transaction_session_timeout: 15000,
+			}),
+		);
 	});
 	it('should connect when module initialization runs', async () => {
 		const connect = jest.spyOn(service, '$connect');

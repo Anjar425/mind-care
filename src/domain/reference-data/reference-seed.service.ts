@@ -111,7 +111,7 @@ export class ReferenceSeedService {
 				take: bundle.dass42.length + 1,
 			}),
 			tx.conclusion.findMany({
-				select: { id: true, category: true, severty: true },
+				select: { id: true, category: true, severity: true },
 				take: bundle.conclusions.length + 1,
 			}),
 		]);
@@ -157,8 +157,8 @@ export class ReferenceSeedService {
 		};
 		const plan21 = compareQuestions('DASS21', bundle.dass21, rows21);
 		const plan42 = compareQuestions('DASS42', bundle.dass42, rows42);
-		const pairKey = (row: { category: string; severty: string }) =>
-			`${row.category}:${row.severty}`;
+		const pairKey = (row: { category: string; severity: string }) =>
+			`${row.category}:${row.severity}`;
 		const expectedPairs = new Set(bundle.conclusions.map(pairKey));
 		const storedPairs = new Set(conclusions.map(pairKey));
 		if (conclusions.some((row) => !expectedPairs.has(pairKey(row))))

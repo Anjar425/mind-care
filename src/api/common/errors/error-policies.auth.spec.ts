@@ -35,6 +35,7 @@ describe('GlobalExceptionFilter', () => {
 		expect(response.status).toHaveBeenCalledWith(400);
 		expect(response.json).toHaveBeenCalledWith({
 			statusCode: 400,
+			code: 'VALIDATION_FAILED',
 			message: ['email must be an email'],
 			error: 'Bad Request',
 		});
@@ -57,11 +58,15 @@ describe('GlobalExceptionFilter', () => {
 			filter.catch(error, host);
 			expect(response.json).toHaveBeenCalledWith({
 				statusCode: 500,
+				code: 'INTERNAL_ERROR',
 				message: ['Internal server error'],
 				error: 'Internal Server Error',
 			});
 			expect(logError).toHaveBeenCalledWith(
-				'Authentication request failed',
+				expect.stringMatching(/^Authentication request failed \(/),
+			);
+			expect(JSON.stringify(logError.mock.calls)).not.toContain(
+				'PRIVATE',
 			);
 		},
 	);
@@ -75,6 +80,7 @@ describe('GlobalExceptionFilter', () => {
 		);
 		expect(response.json).toHaveBeenCalledWith({
 			statusCode: 400,
+			code: 'VALIDATION_FAILED',
 			message: ['Valid'],
 			error: 'Rejected',
 		});

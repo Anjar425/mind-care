@@ -172,16 +172,24 @@ describe('Client SDK with real opaque history services and native Web Crypto', (
 		await transport.consent(1, true);
 		await transport.remove(null, 2);
 		await transport.page({ limit: 25, expectedVaultRevision: 2 });
-		expect(request).toHaveBeenCalledWith('PUT', '/me/history/consent', {
-			expectedVaultRevision: 1,
-			enabled: true,
-		});
-		expect(request).toHaveBeenCalledWith('DELETE', '/me/history/entries', {
-			expectedVaultRevision: 2,
-		});
+		expect(request).toHaveBeenCalledWith(
+			'PUT',
+			'/api/v1/account/history/consent',
+			{
+				expectedVaultRevision: 1,
+				enabled: true,
+			},
+		);
+		expect(request).toHaveBeenCalledWith(
+			'DELETE',
+			'/api/v1/account/history/entries',
+			{
+				expectedVaultRevision: 2,
+			},
+		);
 		expect(request).toHaveBeenCalledWith(
 			'GET',
-			'/me/history/entries?limit=25&expectedVaultRevision=2',
+			'/api/v1/account/history/entries?limit=25&expectedVaultRevision=2',
 			undefined,
 		);
 	});

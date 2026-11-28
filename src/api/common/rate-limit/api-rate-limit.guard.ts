@@ -3,118 +3,134 @@ import {
 	Inject,
 	Injectable,
 	CanActivate,
+	Logger,
+	Optional,
+	ServiceUnavailableException,
 } from '@nestjs/common';
 import { ThrottlerStorage, ThrottlerException } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { createHash } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
+import { Reflector } from '@nestjs/core';
 import type { RuntimeEnvironment } from '../../../infrastructure/config/environment.config';
-
-type ActionLimit =
-	| 'RATE_LIMIT_LOGIN'
-	| 'RATE_LIMIT_REGISTER'
-	| 'RATE_LIMIT_FORGOT_PASSWORD'
-	| 'RATE_LIMIT_SEND_VERIFICATION'
-	| 'RATE_LIMIT_REFRESH'
-	| 'RATE_LIMIT_SCREENING_QDSS'
-	| 'RATE_LIMIT_SCREENING_DASS42'
-	| 'CREDENTIAL_UPLOAD_RATE_LIMIT';
-const ACTIONS: Record<string, { name: string; setting: ActionLimit }> = {
-	'/screenings/qdss': {
-		name: 'screening-qdss',
-		setting: 'RATE_LIMIT_SCREENING_QDSS',
-	},
-	'/screenings/dass42': {
-		name: 'screening-dass42',
-		setting: 'RATE_LIMIT_SCREENING_DASS42',
-	},
-	'/expert/me/credentials/:type': {
-		name: 'credential-upload',
-		setting: 'CREDENTIAL_UPLOAD_RATE_LIMIT',
-	},
-	'/auth/login': { name: 'login', setting: 'RATE_LIMIT_LOGIN' },
-	'/auth/expert/login': { name: 'login', setting: 'RATE_LIMIT_LOGIN' },
-	'/auth/admin/login': { name: 'login', setting: 'RATE_LIMIT_LOGIN' },
-	'/auth/user/register': { name: 'register', setting: 'RATE_LIMIT_REGISTER' },
-	'/auth/expert/register': {
-		name: 'register',
-		setting: 'RATE_LIMIT_REGISTER',
-	},
-	'/auth/forgot-password': {
-		name: 'forgot',
-		setting: 'RATE_LIMIT_FORGOT_PASSWORD',
-	},
-	'/auth/send-verification': {
-		name: 'verification',
-		setting: 'RATE_LIMIT_SEND_VERIFICATION',
-	},
-	'/auth/refresh': { name: 'refresh', setting: 'RATE_LIMIT_REFRESH' },
-};
+import { normalizeEmail } from '../../../domain/identity/account-validation.util';
+import { metrics } from '../../../infrastructure/observability/metrics';
+import { SecurityEventService } from '../../../domain/security-events/security-event.service';
+import {
+	RATE_LIMIT_ACTION,
+	RATE_LIMIT_ACTIONS,
+	type RateLimitAction,
+	type RateLimitPolicy,
+} from './rate-limit.decorator';
 
 @Injectable()
 export class ApiRateLimitGuard implements CanActivate {
+	private readonly logger = new Logger(ApiRateLimitGuard.name);
+
 	constructor(
 		@Inject(ThrottlerStorage) private readonly storage: ThrottlerStorage,
 		private readonly config: ConfigService<RuntimeEnvironment, true>,
+		private readonly reflector: Reflector,
+		// Optional so feature tests can assemble the guard without the audit store.
+		@Optional() private readonly events?: SecurityEventService,
 	) {}
 
 	async canActivate(context: ExecutionContext): Promise<boolean> {
 		const http = context.switchToHttp();
 		const req = http.getRequest<Request>();
 		const res = http.getResponse<Response>();
-		// Use the socket peer: no forwarded header is trusted by this local policy.
-		const ip = req.socket.remoteAddress ?? 'unknown';
+		// req.ip is the socket peer unless TRUST_PROXY_HOPS lets Express read X-Forwarded-For.
+		const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
 		await this.consume(
 			ip,
 			'general',
 			this.config.get('RATE_LIMIT_GENERAL', { infer: true }),
 			res,
+			false,
 		);
-		// Express's matched template is canonical even for case/trailing-slash variants.
-		const route: unknown = req.route;
-		const path =
-			typeof route === 'object' &&
-			route !== null &&
-			'path' in route &&
-			typeof route.path === 'string'
-				? route.path
-				: '';
-		const action = req.method === 'POST' ? ACTIONS[path] : undefined;
-		if (action)
+		const action = this.reflector.get<RateLimitAction | undefined>(
+			RATE_LIMIT_ACTION,
+			context.getHandler(),
+		);
+		if (!action) return true;
+		const policy: RateLimitPolicy = RATE_LIMIT_ACTIONS[action];
+		await this.consume(
+			ip,
+			action,
+			this.config.get(policy.limit, { infer: true }),
+			res,
+			policy.failClosed,
+		);
+		// Second counter per submitted email, so one account cannot be attacked from many IPs.
+		// Any string counts (existing or not), so the limit reveals nothing about accounts.
+		const email = accountOf(req.body);
+		if (policy.account && email)
 			await this.consume(
-				ip,
-				action.name,
-				this.config.get(action.setting, { infer: true }),
+				email,
+				`${action}-account`,
+				this.config.get(policy.account, { infer: true }),
 				res,
+				policy.failClosed,
 			);
 		return true;
 	}
 
 	private async consume(
-		ip: string,
+		subject: string,
 		name: string,
 		limit: number,
 		response: Response,
+		failClosed: boolean,
 	): Promise<void> {
-		const key = createHash('sha256').update(`${name}:${ip}`).digest('hex');
+		const key = createHash('sha256')
+			.update(`${name}:${subject}`)
+			.digest('hex');
 		const windowMs = this.config.get('RATE_LIMIT_WINDOW_MS', {
 			infer: true,
 		});
-		const result = await this.storage.increment(
-			key,
-			windowMs,
-			limit,
-			windowMs,
-			name,
-		);
+		let result: Awaited<ReturnType<ThrottlerStorage['increment']>>;
+		try {
+			result = await this.storage.increment(
+				key,
+				windowMs,
+				limit,
+				windowMs,
+				name,
+			);
+		} catch {
+			// No key, IP or email is logged.
+			this.logger.warn('Rate-limit store unavailable');
+			metrics.rateLimitStoreErrors.inc({
+				outcome: failClosed ? 'refused' : 'allowed',
+			});
+			if (failClosed)
+				throw new ServiceUnavailableException(
+					'Request temporarily unavailable; retry later',
+				);
+			return;
+		}
 		response.setHeader(`X-RateLimit-Limit-${name}`, limit);
 		response.setHeader(
 			`X-RateLimit-Remaining-${name}`,
 			Math.max(0, limit - result.totalHits),
 		);
 		if (result.isBlocked) {
+			metrics.rateLimitRejections.inc({ limit: name });
+			if (name === 'login' || name === 'login-account')
+				await this.events?.record('LOGIN_RATE_LIMITED');
 			response.setHeader('Retry-After', result.timeToBlockExpire);
 			throw new ThrottlerException('Too many requests');
 		}
 	}
+}
+
+function accountOf(body: unknown): string | undefined {
+	if (typeof body !== 'object' || body === null || !('email' in body))
+		return undefined;
+	const { email } = body;
+	if (typeof email !== 'string') return undefined;
+	const normalized = normalizeEmail(email);
+	return normalized.length > 0 && normalized.length <= 320
+		? normalized
+		: undefined;
 }

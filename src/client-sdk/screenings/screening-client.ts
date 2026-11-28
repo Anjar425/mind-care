@@ -5,6 +5,7 @@ import type {
 	QdssScreening,
 	ScreeningResponse,
 } from '../../shared/contracts/screening';
+import { API_BASE_PATH } from '../../shared/contracts/api';
 export interface ScreeningApiRequest {
 	(method: 'POST', path: string, body: unknown): Promise<{ data: unknown }>;
 }
@@ -80,6 +81,8 @@ export class ScreeningClient {
 	constructor(
 		private readonly request: ScreeningApiRequest,
 		private readonly history?: HistoryTarget,
+		/** API root seen by the request function (default /api/v1; empty when it adds it). */
+		private readonly basePath: string = API_BASE_PATH,
 	) {}
 	private async submit(
 		input: QdssScreening | Dass42Screening,
@@ -88,9 +91,7 @@ export class ScreeningClient {
 		const accepted = structuredClone(input);
 		const received = await this.request(
 			'POST',
-			instrument === 'QDSS_DASS21'
-				? '/screenings/qdss'
-				: '/screenings/dass42',
+			`${this.basePath}/screenings/${instrument === 'QDSS_DASS21' ? 'qdss' : 'dass42'}`,
 			accepted,
 		);
 		const { screening, document } = response(

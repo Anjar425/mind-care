@@ -7,6 +7,7 @@ import { UserRole } from '../../src/shared/types/role';
 import type { MailService } from '../../src/infrastructure/mail/mail.service';
 import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { createPrisma, createUser, dbConfig, resetData } from './support';
+import { SecurityEventService } from '../../src/domain/security-events/security-event.service';
 
 describe('Auth sessions on PostgreSQL', () => {
 	const config = dbConfig();
@@ -21,13 +22,15 @@ describe('Auth sessions on PostgreSQL', () => {
 
 	beforeAll(() => {
 		prisma = createPrisma();
-		sessions = new AuthSessionService(prisma, jwt, config);
+		const events = new SecurityEventService(prisma, config);
+		sessions = new AuthSessionService(prisma, jwt, config, events);
 		auth = new AuthService(
 			prisma,
 			new UserService(prisma),
 			sessions,
 			mail as unknown as MailService,
 			config,
+			events,
 		);
 	});
 	beforeEach(async () => {

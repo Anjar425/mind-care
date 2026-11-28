@@ -15,9 +15,9 @@ enum SEVERITY {
 model Conclusion {
   id       Int      @id @default(autoincrement())
   category CATEGORY
-  severty  SEVERITY
+  severity SEVERITY
 
   ruleRevisions RuleRevision[]
 
-  @@unique([category, severty])
+  @@unique([category, severity])
 }

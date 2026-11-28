@@ -65,7 +65,7 @@ describe('DASS42 authored revisions (synthetic persistence)', () => {
 	] as const)('should reject authoring with invalid %s', async (kind) => {
 		const e = m.groups.state.experts[0];
 		if (kind === 'role') e.user.role = 'USER';
-		if (kind === 'email') e.user.email_verified_at = null;
+		if (kind === 'email') e.user.emailVerifiedAt = null;
 		if (kind === 'suspension') e.credentialSuspendedAt = new Date();
 		if (kind === 'expiry') e.credentialRevisions[0].expiresAt = new Date();
 		if (kind === 'membership')
@@ -231,7 +231,7 @@ describe('DASS42 authored revisions (synthetic persistence)', () => {
 			if (kind === 'position') row.premises[0].position = 3;
 			if (kind === 'original') row.originalPayload = {};
 			if (kind === 'version') row.version = 0;
-			if (kind === 'conclusion') row.conclusion.severty = 'NORMAL';
+			if (kind === 'conclusion') row.conclusion.severity = 'NORMAL';
 			await expect(
 				service.detail(user, groupId, r.id),
 			).rejects.toBeInstanceOf(ServiceUnavailableException);

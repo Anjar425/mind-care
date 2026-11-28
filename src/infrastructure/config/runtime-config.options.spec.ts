@@ -2,7 +2,32 @@ import fs from 'node:fs';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { createRuntimeConfigOptions } from './runtime-config.options';
-import { syntheticConfig } from '../../../test/runtime-config.mock';
+import { syntheticEnv } from '../../../test/runtime-config.mock';
+
+// Serve a synthetic .env without touching the real file. Every other read (modules, source
+// maps used for Jest stack traces) goes to the real filesystem.
+function fakeEnvFile(contents: string) {
+	const originalExists = fs.existsSync;
+	const originalRead = fs.readFileSync;
+	const isEnv = (path: unknown) => String(path) === '.env';
+	return [
+		jest
+			.spyOn(fs, 'existsSync')
+			.mockImplementation((path) => isEnv(path) || originalExists(path)),
+		jest
+			.spyOn(fs, 'readFileSync')
+			.mockImplementation(((
+				path: fs.PathOrFileDescriptor,
+				options?: unknown,
+			) =>
+				isEnv(path)
+					? Buffer.from(contents)
+					: originalRead(
+							path,
+							options as never,
+						)) as typeof fs.readFileSync),
+	];
+}
 
 describe('Runtime configuration loading', () => {
 	let module: TestingModule | undefined;
@@ -13,17 +38,12 @@ describe('Runtime configuration loading', () => {
 	});
 
 	it('should load and validate a synthetic env file when development settings are absent from the host', async () => {
-		const contents = Object.entries({
-			...syntheticConfig,
-			NODE_ENV: 'development',
-			RATE_LIMIT_LOGIN: 7,
-		})
+		const contents = Object.entries(
+			syntheticEnv({ NODE_ENV: 'development', RATE_LIMIT_LOGIN: '7' }),
+		)
 			.map(([name, value]) => `${name}=${String(value)}`)
 			.join('\n');
-		const exists = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-		const read = jest
-			.spyOn(fs, 'readFileSync')
-			.mockReturnValue(Buffer.from(contents));
+		const [exists, read] = fakeEnvFile(contents);
 		const configured = await ConfigModule.forRoot({
 			...createRuntimeConfigOptions('development'),
 			ignoreEnvVars: true,
@@ -38,14 +58,13 @@ describe('Runtime configuration loading', () => {
 		expect(config.get<number>('RATE_LIMIT_LOGIN')).toBe(7);
 		expect(config.get<number>('PORT')).toBe(3000);
 		expect(config.get<boolean>('MAIL_SECURE')).toBe(false);
-		expect(config.get<string>('CORS_ORIGIN')).toBe('http://localhost:5173');
+		expect(config.get<string[]>('CORS_ORIGIN')).toEqual([
+			'http://localhost:5173',
+		]);
 	});
 
 	it('should reject an invalid synthetic env file when startup configuration is loaded', async () => {
-		jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-		jest.spyOn(fs, 'readFileSync').mockReturnValue(
-			Buffer.from('RATE_LIMIT_LOGIN=invalid\n'),
-		);
+		fakeEnvFile('RATE_LIMIT_LOGIN=invalid\n');
 		await expect(
 			ConfigModule.forRoot({
 				...createRuntimeConfigOptions('development'),

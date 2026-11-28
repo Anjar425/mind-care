@@ -20,6 +20,7 @@ import {
 	Dass42ScreeningResponseDto,
 	QdssScreeningResponseDto,
 } from './dto/screening.responses.dto';
+import { RateLimit } from '../../common/rate-limit/rate-limit.decorator';
 type Request = { user?: AccessPrincipal };
 @ApiTags('Public screening')
 @Controller('screenings')
@@ -28,6 +29,7 @@ type Request = { user?: AccessPrincipal };
 export class ScreeningsController {
 	constructor(private readonly screenings: ScreeningsService) {}
 	@Post('qdss')
+	@RateLimit('screening-qdss')
 	@HttpCode(200)
 	@ScreeningResponseDocumentation(
 		QdssScreeningResponseDto,
@@ -37,6 +39,7 @@ export class ScreeningsController {
 		return this.screenings.evaluateQdss(dto, req.user);
 	}
 	@Post('dass42')
+	@RateLimit('screening-dass42')
 	@HttpCode(200)
 	@ScreeningResponseDocumentation(
 		Dass42ScreeningResponseDto,

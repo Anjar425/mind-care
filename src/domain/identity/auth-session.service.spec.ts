@@ -6,6 +6,7 @@ import { UserRole } from '@/shared/types/role';
 import { hashToken } from '@/domain/identity/token.util';
 import { account, createPrismaMock } from '../../../test/auth-mocks';
 import { AuthSessionService } from './auth-session.service';
+import { securityEventsProvider } from '../../../test/security-events.mock';
 
 describe('AuthSessionService', () => {
 	let service: AuthSessionService;
@@ -17,6 +18,11 @@ describe('AuthSessionService', () => {
 		name: account.name,
 		email: account.email,
 		role: account.role,
+	};
+	// What the session lookup returns: the safe fields plus the verification state.
+	const sessionUser = {
+		...safeUser,
+		emailVerifiedAt: account.emailVerifiedAt,
 	};
 	const claims = {
 		sub: account.id,
@@ -30,6 +36,7 @@ describe('AuthSessionService', () => {
 		prisma = createPrismaMock();
 		module = await Test.createTestingModule({
 			providers: [
+				securityEventsProvider,
 				runtimeConfigProvider,
 				AuthSessionService,
 				{ provide: PrismaService, useValue: prisma },
@@ -109,7 +116,7 @@ describe('AuthSessionService', () => {
 	);
 
 	it('should resolve current identity when an access session is active', async () => {
-		prisma.refreshToken.findFirst.mockResolvedValue({ user: safeUser });
+		prisma.refreshToken.findFirst.mockResolvedValue({ user: sessionUser });
 		expect(await service.validateAccess(claims)).toEqual({
 			...claims,
 			email: safeUser.email,
@@ -125,7 +132,7 @@ describe('AuthSessionService', () => {
 		);
 	});
 
-	it.each([null, { user: { ...safeUser, role: 'EXPERT' } }])(
+	it.each([null, { user: { ...sessionUser, role: 'EXPERT' } }])(
 		'should reject access when the session is absent or account role changed (%p)',
 		async (session) => {
 			prisma.refreshToken.findFirst.mockResolvedValue(session);
@@ -135,7 +142,7 @@ describe('AuthSessionService', () => {
 
 	it('should accept refresh credentials when the signed token matches stored hash', async () => {
 		prisma.refreshToken.findFirst.mockResolvedValue({
-			user: safeUser,
+			user: sessionUser,
 			token: hashToken('current'),
 		});
 		expect(
@@ -153,7 +160,7 @@ describe('AuthSessionService', () => {
 
 	it('should revoke only the affected session when an old refresh token is reused', async () => {
 		prisma.refreshToken.findFirst.mockResolvedValue({
-			user: safeUser,
+			user: sessionUser,
 			token: hashToken('new'),
 		});
 		await expect(
@@ -167,7 +174,7 @@ describe('AuthSessionService', () => {
 	it('should rotate once when the current token wins the atomic update', async () => {
 		const expiresAt = new Date(Date.now() + 60000);
 		prisma.refreshToken.findFirst.mockResolvedValue({
-			user: safeUser,
+			user: sessionUser,
 			expiresAt,
 		});
 		prisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
@@ -193,9 +200,29 @@ describe('AuthSessionService', () => {
 		);
 	});
 
+	it.each(['USER', 'EXPERT'] as const)(
+		'should end a %s session at refresh when the email is not verified',
+		async (role) => {
+			prisma.refreshToken.findFirst.mockResolvedValue({
+				user: { ...sessionUser, role, emailVerifiedAt: null },
+				expiresAt: new Date(Date.now() + 60000),
+			});
+			await expect(
+				service.rotate({
+					...claims,
+					role,
+					type: 'refresh',
+					email: account.email,
+					tokenHash: 'current-hash',
+				}),
+			).rejects.toThrow();
+			expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
+		},
+	);
+
 	it('should revoke the session when a competing refresh already consumed the token', async () => {
 		prisma.refreshToken.findFirst.mockResolvedValue({
-			user: safeUser,
+			user: sessionUser,
 			expiresAt: new Date(Date.now() + 60000),
 		});
 		prisma.refreshToken.updateMany.mockResolvedValue({ count: 0 });

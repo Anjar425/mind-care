@@ -14,9 +14,12 @@ import type {
 	SessionUser,
 } from './identity.types';
 import { IDENTITY_TX } from './identity-persistence';
+import { requiresVerifiedEmail } from './email-verification.policy';
+import { SecurityEventService } from '../security-events/security-event.service';
 
-const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const USER_SELECT = { id: true, name: true, email: true, role: true } as const;
+const SESSION_USER_SELECT = { ...USER_SELECT, emailVerifiedAt: true } as const;
 
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null;
@@ -28,6 +31,7 @@ export class AuthSessionService {
 		private readonly prisma: PrismaService,
 		private readonly jwt: JwtService,
 		private readonly config: ConfigService<RuntimeEnvironment, true>,
+		private readonly events: SecurityEventService,
 	) {}
 
 	async create(
@@ -50,7 +54,11 @@ export class AuthSessionService {
 				)
 					this.deny();
 				const sid = randomUUID();
-				const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
+				const expiresAt = new Date(
+					Date.now() +
+						this.config.get('SESSION_TTL_DAYS', { infer: true }) *
+							DAY_MS,
+				);
 				const tokens = this.sign(this.publicUser(user), sid, expiresAt);
 				await tx.refreshToken.create({
 					data: {
@@ -89,6 +97,9 @@ export class AuthSessionService {
 		const tokenHash = hashToken(rawToken);
 		if (!this.matchesHash(session.token, tokenHash)) {
 			await this.revoke(claims.sub, claims.sid);
+			await this.events.record('REFRESH_REUSE_DETECTED', {
+				subjectUserId: claims.sub,
+			});
 			this.deny();
 		}
 		return {
@@ -102,7 +113,14 @@ export class AuthSessionService {
 
 	async rotate(principal: RefreshPrincipal): Promise<SessionTokens> {
 		const session = await this.session(principal.sub, principal.sid);
-		if (!session || session.user.role !== principal.role) this.deny();
+		if (
+			!session ||
+			session.user.role !== principal.role ||
+			// Sessions opened before login required a verified email end at their next refresh.
+			(requiresVerifiedEmail(session.user.role) &&
+				!session.user.emailVerifiedAt)
+		)
+			this.deny();
 		const tokens = this.sign(
 			this.publicUser(session.user),
 			principal.sid,
@@ -120,6 +138,9 @@ export class AuthSessionService {
 		});
 		if (updated.count !== 1) {
 			await this.revoke(principal.sub, principal.sid);
+			await this.events.record('REFRESH_REUSE_DETECTED', {
+				subjectUserId: principal.sub,
+			});
 			this.deny();
 		}
 		return tokens;
@@ -134,7 +155,7 @@ export class AuthSessionService {
 	private session(userId: string, sid: string) {
 		return this.prisma.refreshToken.findFirst({
 			where: { id: sid, userId, expiresAt: { gt: new Date() } },
-			include: { user: { select: USER_SELECT } },
+			include: { user: { select: SESSION_USER_SELECT } },
 		});
 	}
 
@@ -166,15 +187,19 @@ export class AuthSessionService {
 		expiresAt: Date,
 	): SessionTokens {
 		const base = { sub: user.id, sid, role: user.role };
+		// The first key of each ring signs; its id travels in the header for verification.
+		const [access] = this.config.get('JWT_ACCESS_KEYS', { infer: true });
+		const [refresh] = this.config.get('JWT_REFRESH_KEYS', { infer: true });
 		return {
 			accessToken: this.jwt.sign(
 				{ ...base, type: 'access', jti: randomUUID() },
 				{
-					secret: this.config.get('JWT_ACCESS_SECRET', {
+					secret: access.secret,
+					keyid: access.kid,
+					algorithm: 'HS256',
+					expiresIn: this.config.get('ACCESS_TOKEN_TTL_SECONDS', {
 						infer: true,
 					}),
-					algorithm: 'HS256',
-					expiresIn: '15m',
 				},
 			),
 			refreshToken: this.jwt.sign(
@@ -185,9 +210,8 @@ export class AuthSessionService {
 					exp: Math.floor(expiresAt.getTime() / 1000),
 				},
 				{
-					secret: this.config.get('JWT_REFRESH_SECRET', {
-						infer: true,
-					}),
+					secret: refresh.secret,
+					keyid: refresh.kid,
 					algorithm: 'HS256',
 				},
 			),

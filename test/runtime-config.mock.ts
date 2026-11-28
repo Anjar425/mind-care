@@ -1,12 +1,19 @@
 import { ConfigService } from '@nestjs/config';
 import type { RuntimeEnvironment } from '../src/infrastructure/config/environment.config';
 
+const ACCESS_SECRET = 'synthetic-access-key-for-auth-tests';
+const REFRESH_SECRET = 'synthetic-refresh-key-for-auth-tests';
+const ENCRYPTION_KEY = 'a'.repeat(64);
+
 export const syntheticConfig: RuntimeEnvironment = {
 	NODE_ENV: 'test',
 	PORT: 3000,
 	DATABASE_URL: 'postgresql://synthetic:synthetic@localhost/test',
-	JWT_ACCESS_SECRET: 'synthetic-access-key-for-auth-tests',
-	JWT_REFRESH_SECRET: 'synthetic-refresh-key-for-auth-tests',
+	JWT_ACCESS_SECRET: ACCESS_SECRET,
+	JWT_REFRESH_SECRET: REFRESH_SECRET,
+	JWT_ACCESS_KEYS: [{ kid: 'k0', secret: ACCESS_SECRET }],
+	JWT_REFRESH_KEYS: [{ kid: 'k0', secret: REFRESH_SECRET }],
+	CREDENTIAL_ENCRYPTION_KEYS: [{ kid: 'k0', secret: ENCRYPTION_KEY }],
 	FRONTEND_URL: 'http://localhost:5173',
 	MAIL_HOST: 'smtp.example.test',
 	MAIL_PORT: 587,
@@ -16,7 +23,7 @@ export const syntheticConfig: RuntimeEnvironment = {
 	MAIL_FROM: 'test@example.test',
 	VERIFICATION_TOKEN_EXPIRY_MINUTES: 15,
 	RESET_TOKEN_EXPIRY_MINUTES: 15,
-	CORS_ORIGIN: 'http://localhost:5173',
+	CORS_ORIGIN: ['http://localhost:5173'],
 	RATE_LIMIT_WINDOW_MS: 60000,
 	RATE_LIMIT_GENERAL: 120,
 	RATE_LIMIT_LOGIN: 5,
@@ -26,14 +33,31 @@ export const syntheticConfig: RuntimeEnvironment = {
 	RATE_LIMIT_REFRESH: 30,
 	RATE_LIMIT_SCREENING_QDSS: 10,
 	RATE_LIMIT_SCREENING_DASS42: 5,
+	RATE_LIMIT_LOGIN_ACCOUNT: 10,
+	RATE_LIMIT_EMAIL_ACCOUNT: 5,
 	HEALTH_CHECK_TIMEOUT_MS: 1000,
 	CREDENTIAL_STORAGE_ROOT: '.private/credentials',
-	CREDENTIAL_ENCRYPTION_KEY: 'a'.repeat(64),
+	CREDENTIAL_ENCRYPTION_KEY: ENCRYPTION_KEY,
 	CREDENTIAL_LOOKUP_KEY: 'b'.repeat(64),
 	CREDENTIAL_UPLOAD_MAX_BYTES: 5242880,
 	CREDENTIAL_UPLOAD_RATE_LIMIT: 3,
 	CREDENTIAL_REMINDER_LEAD_DAYS: 30,
 	CREDENTIAL_REMINDER_HOUR: 9,
+	TRUST_PROXY_HOPS: 0,
+	SWAGGER_MODE: 'public',
+	ACCESS_TOKEN_TTL_SECONDS: 900,
+	SESSION_TTL_DAYS: 7,
+	DB_POOL_MAX: 10,
+	DB_STATEMENT_TIMEOUT_MS: 15000,
+	LOG_LEVEL: 'silent',
+	METRICS_PORT: 0,
+	SECURITY_EVENT_RETENTION_DAYS: 365,
+	STORAGE_DRIVER: 'local',
+	S3_BUCKET: '',
+	S3_REGION: 'us-east-1',
+	S3_ENDPOINT: '',
+	S3_ACCESS_KEY_ID: '',
+	S3_SECRET_ACCESS_KEY: '',
 };
 export const runtimeConfigMock = {
 	get: jest.fn((key: keyof RuntimeEnvironment) => syntheticConfig[key]),
@@ -42,3 +66,21 @@ export const runtimeConfigProvider = {
 	provide: ConfigService,
 	useValue: runtimeConfigMock,
 };
+
+// The synthetic configuration as environment variables. Key rings are implied by the
+// single secrets (ring [k0]), so they are not written.
+const DERIVED = new Set([
+	'JWT_ACCESS_KEYS',
+	'JWT_REFRESH_KEYS',
+	'CREDENTIAL_ENCRYPTION_KEYS',
+]);
+export function syntheticEnv(
+	overrides: Partial<Record<keyof RuntimeEnvironment, string>> = {},
+): Record<string, string> {
+	const env: Record<string, string> = {};
+	for (const [key, value] of Object.entries(syntheticConfig)) {
+		if (DERIVED.has(key)) continue;
+		env[key] = Array.isArray(value) ? value.join(',') : String(value);
+	}
+	return { ...env, ...overrides };
+}

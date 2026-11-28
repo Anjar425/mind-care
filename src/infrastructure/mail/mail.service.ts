@@ -7,6 +7,7 @@ import {
 	type MailMessage,
 	type MailTransport,
 } from './mail-transport';
+import { metrics } from '../observability/metrics';
 
 function formatMinutes(minutes: number): string {
 	return `${minutes} minute${minutes === 1 ? '' : 's'}`;
@@ -80,10 +81,33 @@ export class MailService implements OnModuleDestroy {
 		});
 	}
 
-	private async send(message: Omit<MailMessage, 'from'>): Promise<void> {
-		await this.transport.sendMail({
-			from: this.config.get('MAIL_FROM', { infer: true }),
-			...message,
+	/** Sent instead of a 409 when someone signs up with an existing, verified email (API-001). */
+	async sendAccountExistsEmail(
+		email: string,
+		firstName: string,
+	): Promise<void> {
+		const html = this.templates.render('account-exists', {
+			firstName,
+			actionUrl: `${this.config.get('FRONTEND_URL', { infer: true })}/sign-in`,
+			year: String(new Date().getFullYear()),
 		});
+
+		await this.send({
+			to: email,
+			subject: 'Sign-up Attempt for Your Account - MindCare',
+			html,
+		});
+	}
+
+	private async send(message: Omit<MailMessage, 'from'>): Promise<void> {
+		try {
+			await this.transport.sendMail({
+				from: this.config.get('MAIL_FROM', { infer: true }),
+				...message,
+			});
+		} catch (error) {
+			metrics.emailSendFailures.inc();
+			throw error;
+		}
 	}
 }

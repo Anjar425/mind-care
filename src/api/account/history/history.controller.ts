@@ -43,7 +43,7 @@ type Request = { user: AccessPrincipal };
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ErrorPolicy('history')
 @Roles('USER', 'EXPERT')
-@Controller('me/history')
+@Controller('account/history')
 export class HistoryController {
 	constructor(
 		private readonly history: HistoryService,

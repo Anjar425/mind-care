@@ -28,18 +28,18 @@ describe('VerifiedEmailGuard', () => {
 	it('should use current database verification rather than an access-token claim', async () => {
 		findUnique.mockResolvedValue({
 			role: 'EXPERT',
-			email_verified_at: new Date(),
+			emailVerifiedAt: new Date(),
 		});
 		await expect(guard.canActivate(context)).resolves.toBe(true);
 		expect(findUnique).toHaveBeenCalledWith({
 			where: { id: 'owner' },
-			select: { role: true, email_verified_at: true },
+			select: { role: true, emailVerifiedAt: true },
 		});
 	});
 	it.each([
 		null,
-		{ role: 'USER', email_verified_at: new Date() },
-		{ role: 'EXPERT', email_verified_at: null },
+		{ role: 'USER', emailVerifiedAt: new Date() },
+		{ role: 'EXPERT', emailVerifiedAt: null },
 	])(
 		'should deny missing, wrong-role or unverified current state %p',
 		async (row) => {

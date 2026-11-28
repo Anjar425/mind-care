@@ -18,9 +18,9 @@ export class VerifiedEmailGuard implements CanActivate {
 			user &&
 			(await this.prisma.user.findUnique({
 				where: { id: user.sub },
-				select: { role: true, email_verified_at: true },
+				select: { role: true, emailVerifiedAt: true },
 			}));
-		if (!current || current.role !== 'EXPERT' || !current.email_verified_at)
+		if (!current || current.role !== 'EXPERT' || !current.emailVerifiedAt)
 			throw new ForbiddenException(
 				'Verify your expert email before submitting',
 			);

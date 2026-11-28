@@ -60,7 +60,7 @@ export async function createUser(
 			email: `${randomUUID()}@example.test`,
 			password: await bcrypt.hash(PASSWORD, 4),
 			role: options.role ?? 'USER',
-			email_verified_at: options.verified === false ? null : new Date(),
+			emailVerifiedAt: options.verified === false ? null : new Date(),
 		},
 	});
 }

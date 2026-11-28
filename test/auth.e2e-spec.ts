@@ -20,6 +20,7 @@ import { AuthService } from '@/domain/identity/auth.service';
 import { AuthSessionService } from '@/domain/identity/auth-session.service';
 import { ErrorPolicy } from '@/api/common/errors/error-policy.decorator';
 import { GlobalExceptionFilter } from '@/api/common/errors/global-exception.filter';
+import { configureRouting } from '@/api/app.setup';
 import { JwtStrategy } from '@/api/common/auth/jwt.strategy';
 import { RefreshStrategy } from '@/api/common/auth/refresh.strategy';
 import { JwtAuthGuard } from '@/api/common/auth/jwt-auth.guard';
@@ -34,6 +35,7 @@ import { MailService } from '@/infrastructure/mail/mail.service';
 import { UserRole } from '@/shared/types/role';
 import { ResponseInterceptor } from '@/api/common/interceptors/response.interceptor';
 import { createAuthMemoryStore } from './auth-memory-store';
+import { securityEventsProvider } from './security-events.mock';
 
 @Controller('auth-test')
 @ErrorPolicy('auth')
@@ -52,7 +54,12 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 	let store: ReturnType<typeof createAuthMemoryStore>;
 	let jwt: JwtService;
 	let mail: jest.Mocked<
-		Pick<MailService, 'sendVerificationEmail' | 'sendPasswordResetEmail'>
+		Pick<
+			MailService,
+			| 'sendVerificationEmail'
+			| 'sendPasswordResetEmail'
+			| 'sendAccountExistsEmail'
+		>
 	>;
 	const password = 'Passw0rd123';
 	const passwordHash = bcrypt.hashSync(password, 4);
@@ -62,6 +69,7 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 		mail = {
 			sendVerificationEmail: jest.fn(),
 			sendPasswordResetEmail: jest.fn(),
+			sendAccountExistsEmail: jest.fn(),
 		};
 		logError = jest
 			.spyOn(Logger.prototype, 'error')
@@ -73,6 +81,7 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 			],
 			controllers: [AuthController, ProtectedTestController],
 			providers: [
+				securityEventsProvider,
 				runtimeConfigProvider,
 				AuthService,
 				AuthSessionService,
@@ -90,6 +99,7 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 		app = module.createNestApplication<INestApplication<Server>>({
 			logger: false,
 		});
+		configureRouting(app);
 		app.useGlobalPipes(
 			new ValidationPipe({
 				transform: true,
@@ -111,8 +121,8 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 	async function login(role = UserRole.USER): Promise<SessionTokens> {
 		const path =
 			role === UserRole.USER
-				? '/auth/login'
-				: `/auth/${role.toLowerCase()}/login`;
+				? '/api/v1/auth/login'
+				: `/api/v1/auth/${role.toLowerCase()}/login`;
 		const response = await request(app.getHttpServer())
 			.post(path)
 			.send({ email: ` ${role}@Example.com `, password })
@@ -140,12 +150,12 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 	);
 
 	it.each([
-		['/auth/login', 'expert@example.com'],
-		['/auth/login', 'admin@example.com'],
-		['/auth/expert/login', 'user@example.com'],
-		['/auth/expert/login', 'admin@example.com'],
-		['/auth/admin/login', 'user@example.com'],
-		['/auth/admin/login', 'expert@example.com'],
+		['/api/v1/auth/login', 'expert@example.com'],
+		['/api/v1/auth/login', 'admin@example.com'],
+		['/api/v1/auth/expert/login', 'user@example.com'],
+		['/api/v1/auth/expert/login', 'admin@example.com'],
+		['/api/v1/auth/admin/login', 'user@example.com'],
+		['/api/v1/auth/admin/login', 'expert@example.com'],
 	])(
 		'should deny cross-role sign-in when %s receives %s',
 		async (path, email) => {
@@ -157,9 +167,19 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 		},
 	);
 
-	it('should create a normalized account when public registration is valid', async () => {
+	// Registration emails are sent after the response; let them finish.
+	const settle = async () => {
+		for (let i = 0; i < 10; i++)
+			await new Promise((done) => setImmediate(done));
+	};
+	const registrationReceived = {
+		statusCode: 201,
+		message: 'Registration received; check your email to continue',
+	};
+
+	it('should create a normalized account and email a verification link when public registration is valid', async () => {
 		const response = await request(app.getHttpServer())
-			.post('/auth/user/register')
+			.post('/api/v1/auth/user/register')
 			.send({
 				name: 'New Example',
 				email: ' NEW@Example.com ',
@@ -167,17 +187,22 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 				confirm_password: password,
 			})
 			.expect(201);
-		const body = response.body as {
-			data: { user: Record<string, unknown> };
-		};
-		expect(body.data.user.email).toBe('new@example.com');
-		expect(body.data.user.role).toBe('USER');
-		expect(body.data.user).not.toHaveProperty('password');
+		expect(response.body).toEqual(registrationReceived);
+		const created = [...store.users.values()].find(
+			(row) => row.email === 'new@example.com',
+		);
+		expect(created?.role).toBe('USER');
+		await settle();
+		expect(mail.sendVerificationEmail).toHaveBeenCalledWith(
+			'new@example.com',
+			expect.any(String),
+			'New Example',
+		);
 	});
 
 	it('should create only an expert account when expert registration is valid', async () => {
 		const response = await request(app.getHttpServer())
-			.post('/auth/expert/register')
+			.post('/api/v1/auth/expert/register')
 			.send({
 				name: 'New Expert',
 				email: 'newexpert@example.com',
@@ -185,15 +210,17 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 				confirm_password: password,
 			})
 			.expect(201);
+		expect(response.body).toEqual(registrationReceived);
 		expect(
-			(response.body as { data: { user: { role: string } } }).data.user
-				.role,
+			[...store.users.values()].find(
+				(row) => row.email === 'newexpert@example.com',
+			)?.role,
 		).toBe('EXPERT');
 	});
 
 	it('should reject privileged registration and unknown fields when input bypass is attempted', async () => {
 		await request(app.getHttpServer())
-			.post('/auth/user/register')
+			.post('/api/v1/auth/user/register')
 			.send({
 				name: 'Example',
 				email: 'new@example.com',
@@ -203,14 +230,14 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 			})
 			.expect(400);
 		await request(app.getHttpServer())
-			.post('/auth/admin/register')
+			.post('/api/v1/auth/admin/register')
 			.send({})
 			.expect(404);
 	});
 
 	it('should reject a markup account name before it can reach email templates', async () => {
 		const response = await request(app.getHttpServer())
-			.post('/auth/user/register')
+			.post('/api/v1/auth/user/register')
 			.send({
 				name: '<a href="https://evil.test">Example</a>',
 				email: 'markup@example.com',
@@ -224,35 +251,67 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 		expect(mail.sendVerificationEmail).not.toHaveBeenCalled();
 	});
 
-	it('should reject duplicate identity when email case differs', async () => {
-		await request(app.getHttpServer())
-			.post('/auth/user/register')
+	it('should answer a verified existing email exactly like a new one and notify its owner (API-001)', async () => {
+		store.users.get(UserRole.USER)!.emailVerifiedAt = new Date();
+		const before = store.users.size;
+		const response = await request(app.getHttpServer())
+			.post('/api/v1/auth/expert/register')
 			.send({
-				name: 'Example',
+				name: 'Someone Else',
 				email: ' USER@Example.com ',
 				password,
 				confirm_password: password,
 			})
-			.expect(409);
+			.expect(201);
+		expect(response.body).toEqual(registrationReceived);
+		expect(store.users.size).toBe(before);
+		expect(store.users.get(UserRole.USER)?.password).toBe(passwordHash);
+		await settle();
+		expect(mail.sendAccountExistsEmail).toHaveBeenCalledWith(
+			'user@example.com',
+			'Example USER',
+		);
+		expect(mail.sendVerificationEmail).not.toHaveBeenCalled();
+	});
+
+	it('should resend the verification link when an unverified existing email registers again', async () => {
+		store.users.get(UserRole.USER)!.emailVerifiedAt = null;
+		const response = await request(app.getHttpServer())
+			.post('/api/v1/auth/user/register')
+			.send({
+				name: 'Example',
+				email: 'user@example.com',
+				password,
+				confirm_password: password,
+			})
+			.expect(201);
+		expect(response.body).toEqual(registrationReceived);
+		await settle();
+		expect(mail.sendVerificationEmail).toHaveBeenCalledWith(
+			'user@example.com',
+			expect.any(String),
+			'Example USER',
+		);
+		expect(mail.sendAccountExistsEmail).not.toHaveBeenCalled();
 	});
 
 	it('should keep another device active when one session logs out', async () => {
 		const first = await login();
 		const second = await login();
 		await request(app.getHttpServer())
-			.post('/auth/logout')
+			.post('/api/v1/auth/logout')
 			.set('Authorization', bearer(first.accessToken))
 			.expect(200);
 		await request(app.getHttpServer())
-			.get('/auth-test/me')
+			.get('/api/v1/auth-test/me')
 			.set('Authorization', bearer(first.accessToken))
 			.expect(401);
 		await request(app.getHttpServer())
-			.post('/auth/refresh')
+			.post('/api/v1/auth/refresh')
 			.set('Authorization', bearer(first.refreshToken))
 			.expect(401);
 		await request(app.getHttpServer())
-			.get('/auth-test/me')
+			.get('/api/v1/auth-test/me')
 			.set('Authorization', bearer(second.accessToken))
 			.expect(200);
 		expect(store.sessions.size).toBe(1);
@@ -261,25 +320,25 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 	it('should rotate tokens and revoke their family when a consumed token is replayed', async () => {
 		const first = await login();
 		const response = await request(app.getHttpServer())
-			.post('/auth/refresh')
+			.post('/api/v1/auth/refresh')
 			.set('Authorization', bearer(first.refreshToken))
 			.expect(200);
 		const rotated = (response.body as { data: SessionTokens }).data;
 		expect(rotated.refreshToken).not.toBe(first.refreshToken);
 		await request(app.getHttpServer())
-			.get('/auth-test/me')
+			.get('/api/v1/auth-test/me')
 			.set('Authorization', bearer(rotated.accessToken))
 			.expect(200);
 		await request(app.getHttpServer())
-			.post('/auth/refresh')
+			.post('/api/v1/auth/refresh')
 			.set('Authorization', bearer(first.refreshToken))
 			.expect(401);
 		await request(app.getHttpServer())
-			.get('/auth-test/me')
+			.get('/api/v1/auth-test/me')
 			.set('Authorization', bearer(rotated.accessToken))
 			.expect(401);
 		await request(app.getHttpServer())
-			.post('/auth/refresh')
+			.post('/api/v1/auth/refresh')
 			.set('Authorization', bearer(rotated.refreshToken))
 			.expect(401);
 	});
@@ -288,10 +347,10 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 		const first = await login();
 		const results = await Promise.all([
 			request(app.getHttpServer())
-				.post('/auth/refresh')
+				.post('/api/v1/auth/refresh')
 				.set('Authorization', bearer(first.refreshToken)),
 			request(app.getHttpServer())
-				.post('/auth/refresh')
+				.post('/api/v1/auth/refresh')
 				.set('Authorization', bearer(first.refreshToken)),
 		]);
 		expect(
@@ -312,19 +371,19 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 			{ secret: process.env.JWT_REFRESH_SECRET, expiresIn: '7d' },
 		);
 		await request(app.getHttpServer())
-			.get('/auth-test/me')
+			.get('/api/v1/auth-test/me')
 			.set('Authorization', bearer(oldAccess))
 			.expect(401);
 		await request(app.getHttpServer())
-			.post('/auth/refresh')
+			.post('/api/v1/auth/refresh')
 			.set('Authorization', bearer(oldRefresh))
 			.expect(401);
 		await request(app.getHttpServer())
-			.post('/auth/refresh')
+			.post('/api/v1/auth/refresh')
 			.set('Authorization', bearer(first.accessToken))
 			.expect(401);
 		await request(app.getHttpServer())
-			.post('/auth/logout')
+			.post('/api/v1/auth/logout')
 			.set('Authorization', bearer(first.refreshToken))
 			.expect(401);
 	});
@@ -349,25 +408,83 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 			{ secret: process.env.JWT_ACCESS_SECRET, expiresIn: -1 },
 		);
 		await request(app.getHttpServer())
-			.get('/auth-test/me')
+			.get('/api/v1/auth-test/me')
 			.set('Authorization', bearer(expired))
 			.expect(401);
 		await request(app.getHttpServer())
-			.get('/auth-test/me')
+			.get('/api/v1/auth-test/me')
 			.set('Authorization', bearer('invalid'))
 			.expect(401);
+	});
+
+	it.each([
+		['/api/v1/auth/login', UserRole.USER],
+		['/api/v1/auth/expert/login', UserRole.EXPERT],
+	] as const)(
+		'should refuse %s with EMAIL_NOT_VERIFIED until the email is verified',
+		async (path, role) => {
+			store.users.get(role)!.emailVerifiedAt = null;
+			const email = `${role.toLowerCase()}@example.com`;
+			const refused = await request(app.getHttpServer())
+				.post(path)
+				.send({ email, password })
+				.expect(403);
+			expect(refused.body).toMatchObject({
+				statusCode: 403,
+				code: 'EMAIL_NOT_VERIFIED',
+				message: ['Verify your email before signing in'],
+			});
+			expect(store.sessions.size).toBe(0);
+			// A wrong password still gets the generic answer, so the 403 needs the password.
+			await request(app.getHttpServer())
+				.post(path)
+				.send({ email, password: 'WrongPass123' })
+				.expect(401);
+			await request(app.getHttpServer())
+				.post('/api/v1/auth/send-verification')
+				.send({ email })
+				.expect(200);
+			const token = mail.sendVerificationEmail.mock.calls[0][1];
+			await request(app.getHttpServer())
+				.get(`/api/v1/auth/verify?token=${token}`)
+				.expect(200);
+			await request(app.getHttpServer())
+				.post(path)
+				.send({ email, password })
+				.expect(200);
+		},
+	);
+
+	it('should verify the email when a password reset completes, so the owner can sign in', async () => {
+		store.users.get(UserRole.USER)!.emailVerifiedAt = null;
+		await request(app.getHttpServer())
+			.post('/api/v1/auth/forgot-password')
+			.send({ email: 'user@example.com' })
+			.expect(200);
+		const token = mail.sendPasswordResetEmail.mock.calls[0][1];
+		await request(app.getHttpServer())
+			.post('/api/v1/auth/reset-password')
+			.send({ token, newPassword: 'DifferentPass123' })
+			.expect(200);
+		expect(store.users.get(UserRole.USER)?.emailVerifiedAt).toBeInstanceOf(
+			Date,
+		);
+		await request(app.getHttpServer())
+			.post('/api/v1/auth/login')
+			.send({ email: 'user@example.com', password: 'DifferentPass123' })
+			.expect(200);
 	});
 
 	it('should invalidate all previous access and refresh sessions when password reset succeeds', async () => {
 		const first = await login();
 		const second = await login();
 		await request(app.getHttpServer())
-			.post('/auth/forgot-password')
+			.post('/api/v1/auth/forgot-password')
 			.send({ email: ' USER@Example.com ' })
 			.expect(200);
 		const token = mail.sendPasswordResetEmail.mock.calls[0][1];
 		const response = await request(app.getHttpServer())
-			.post('/auth/reset-password')
+			.post('/api/v1/auth/reset-password')
 			.send({ token, newPassword: 'DifferentPass123' })
 			.expect(200);
 		expect(
@@ -379,24 +496,24 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 		expect(JSON.stringify(response.body)).not.toContain(passwordHash);
 		for (const session of [first, second]) {
 			await request(app.getHttpServer())
-				.get('/auth-test/me')
+				.get('/api/v1/auth-test/me')
 				.set('Authorization', bearer(session.accessToken))
 				.expect(401);
 			await request(app.getHttpServer())
-				.post('/auth/refresh')
+				.post('/api/v1/auth/refresh')
 				.set('Authorization', bearer(session.refreshToken))
 				.expect(401);
 		}
 		await request(app.getHttpServer())
-			.post('/auth/reset-password')
+			.post('/api/v1/auth/reset-password')
 			.send({ token, newPassword: 'DifferentPass123' })
 			.expect(400);
 		await request(app.getHttpServer())
-			.post('/auth/login')
+			.post('/api/v1/auth/login')
 			.send({ email: 'user@example.com', password })
 			.expect(401);
 		await request(app.getHttpServer())
-			.post('/auth/login')
+			.post('/api/v1/auth/login')
 			.send({ email: 'user@example.com', password: 'DifferentPass123' })
 			.expect(200);
 	});
@@ -404,7 +521,7 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 	it('should reject reset and registration equally when the password violates the byte or strength policy', async () => {
 		for (const invalid of ['Aa1' + 'é'.repeat(35), 'weak']) {
 			await request(app.getHttpServer())
-				.post('/auth/user/register')
+				.post('/api/v1/auth/user/register')
 				.send({
 					name: 'Example',
 					email: 'new@example.com',
@@ -413,7 +530,7 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 				})
 				.expect(400);
 			await request(app.getHttpServer())
-				.post('/auth/reset-password')
+				.post('/api/v1/auth/reset-password')
 				.send({ token: 'a'.repeat(64), newPassword: invalid })
 				.expect(400);
 		}
@@ -421,33 +538,36 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 	});
 
 	it('should verify email once when a valid link token is consumed', async () => {
+		store.users.get(UserRole.USER)!.emailVerifiedAt = null;
 		await request(app.getHttpServer())
-			.post('/auth/send-verification')
+			.post('/api/v1/auth/send-verification')
 			.send({ email: ' USER@Example.com ' })
 			.expect(200);
 		const token = mail.sendVerificationEmail.mock.calls[0][1];
 		await request(app.getHttpServer())
-			.get('/auth/verify')
+			.get('/api/v1/auth/verify')
 			.query({ token })
 			.expect(200);
-		expect(store.users.get('USER')?.email_verified_at).toBeInstanceOf(Date);
+		expect(store.users.get('USER')?.emailVerifiedAt).toBeInstanceOf(Date);
 		await request(app.getHttpServer())
-			.get('/auth/verify')
+			.get('/api/v1/auth/verify')
 			.query({ token })
 			.expect(400);
-		await request(app.getHttpServer()).get('/auth/verify').expect(400);
+		await request(app.getHttpServer())
+			.get('/api/v1/auth/verify')
+			.expect(400);
 	});
 
 	it('should return generic recovery responses when account presence or SMTP availability differs', async () => {
 		const unknown = await request(app.getHttpServer())
-			.post('/auth/forgot-password')
+			.post('/api/v1/auth/forgot-password')
 			.send({ email: 'unknown@example.com' })
 			.expect(200);
 		mail.sendPasswordResetEmail.mockRejectedValue(
 			new Error('PRIVATE_SMTP_TOKEN'),
 		);
 		const known = await request(app.getHttpServer())
-			.post('/auth/forgot-password')
+			.post('/api/v1/auth/forgot-password')
 			.send({ email: 'user@example.com' })
 			.expect(200);
 		expect(known.body).toEqual(unknown.body);
@@ -461,11 +581,12 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 			new Error('PRIVATE_DB_CONNECTION'),
 		);
 		const response = await request(app.getHttpServer())
-			.post('/auth/login')
+			.post('/api/v1/auth/login')
 			.send({ email: 'user@example.com', password })
 			.expect(500);
 		expect(response.body).toEqual({
 			statusCode: 500,
+			code: 'INTERNAL_ERROR',
 			message: ['Internal server error'],
 			error: 'Internal Server Error',
 		});
@@ -480,12 +601,12 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 				.build(),
 		);
 		for (const path of [
-			'/auth/login',
-			'/auth/expert/login',
-			'/auth/admin/login',
-			'/auth/refresh',
-			'/auth/logout',
-			'/auth/reset-password',
+			'/api/v1/auth/login',
+			'/api/v1/auth/expert/login',
+			'/api/v1/auth/admin/login',
+			'/api/v1/auth/refresh',
+			'/api/v1/auth/logout',
+			'/api/v1/auth/reset-password',
 		]) {
 			expect(document.paths[path]?.post?.responses['200']).toBeDefined();
 			expect(
@@ -493,9 +614,16 @@ describe('Authentication HTTP (isolated DB/mail adapters)', () => {
 			).toBeUndefined();
 		}
 		expect(
-			document.paths['/auth/user/register']?.post?.responses['201'],
+			document.paths['/api/v1/auth/user/register']?.post?.responses[
+				'201'
+			],
 		).toBeDefined();
-		expect(document.paths['/auth/refresh']?.post?.security).toEqual([
+		for (const role of ['user', 'expert'])
+			expect(
+				document.paths[`/api/v1/auth/${role}/register`]?.post
+					?.responses['409'],
+			).toBeUndefined();
+		expect(document.paths['/api/v1/auth/refresh']?.post?.security).toEqual([
 			{ 'refresh-token': [] },
 		]);
 		expect(document.components?.schemas?.AuthUserResDto).not.toHaveProperty(

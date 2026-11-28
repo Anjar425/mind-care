@@ -1,0 +1,14 @@
+# Production-profile smoke test of the runtime image, on top of docker-compose.yml.
+# Values are synthetic (CI uses docker/smoke.env). This is NOT a deployment manifest:
+# real deployments inject secrets from the host and terminate TLS in a reverse proxy.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --wait api
+services:
+  api:
+    environment:
+      NODE_ENV: production
+      FRONTEND_URL: https://mindcare.example.test
+      # Same-origin deployment: no CORS, one trusted reverse proxy, no Swagger (D11).
+      CORS_ORIGIN: ''
+      TRUST_PROXY_HOPS: '1'
+      SWAGGER_MODE: 'off'

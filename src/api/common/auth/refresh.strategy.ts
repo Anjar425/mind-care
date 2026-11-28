@@ -5,6 +5,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { Request } from 'express';
 import { AuthSessionService } from '../../../domain/identity/auth-session.service';
+import { ringKeyProvider } from './jwt-key-ring';
 
 @Injectable()
 export class RefreshStrategy extends PassportStrategy(Strategy, 'refresh-jwt') {
@@ -15,7 +16,9 @@ export class RefreshStrategy extends PassportStrategy(Strategy, 'refresh-jwt') {
 		super({
 			jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
 			ignoreExpiration: false,
-			secretOrKey: config.get('JWT_REFRESH_SECRET', { infer: true }),
+			secretOrKeyProvider: ringKeyProvider(
+				config.get('JWT_REFRESH_KEYS', { infer: true }),
+			),
 			algorithms: ['HS256'],
 			passReqToCallback: true,
 		});

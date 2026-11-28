@@ -19,7 +19,7 @@ import { withTransaction } from '../../infrastructure/prisma/transaction';
 export const ELIGIBILITY_EXPERT_SELECT = {
 	id: true,
 	userId: true,
-	user: { select: { name: true, role: true, email_verified_at: true } },
+	user: { select: { name: true, role: true, emailVerifiedAt: true } },
 	credentialSuspendedAt: true,
 	credentialRevisions: {
 		where: { status: 'APPROVED' },

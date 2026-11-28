@@ -10,6 +10,7 @@ import { hashToken } from '@/domain/identity/token.util';
 import { account, createPrismaMock } from '../../../test/auth-mocks';
 import { AuthService } from './auth.service';
 import { AuthSessionService } from './auth-session.service';
+import { securityEventsProvider } from '../../../test/security-events.mock';
 
 describe('AuthService', () => {
 	let service: AuthService;
@@ -17,13 +18,18 @@ describe('AuthService', () => {
 	let prisma: ReturnType<typeof createPrismaMock>;
 	let logError: jest.SpyInstance;
 	let users: jest.Mocked<
-		Pick<UserService, 'create' | 'findForAuthentication'>
+		Pick<UserService, 'register' | 'findForAuthentication'>
 	>;
 	let sessions: jest.Mocked<
 		Pick<AuthSessionService, 'create' | 'rotate' | 'revoke'>
 	>;
 	let mail: jest.Mocked<
-		Pick<MailService, 'sendVerificationEmail' | 'sendPasswordResetEmail'>
+		Pick<
+			MailService,
+			| 'sendVerificationEmail'
+			| 'sendPasswordResetEmail'
+			| 'sendAccountExistsEmail'
+		>
 	>;
 	const password = 'Passw0rd123';
 	const user = { ...account, password: bcrypt.hashSync(password, 4) };
@@ -37,17 +43,19 @@ describe('AuthService', () => {
 
 	beforeEach(async () => {
 		prisma = createPrismaMock();
-		users = { create: jest.fn(), findForAuthentication: jest.fn() };
+		users = { register: jest.fn(), findForAuthentication: jest.fn() };
 		sessions = { create: jest.fn(), rotate: jest.fn(), revoke: jest.fn() };
 		mail = {
 			sendVerificationEmail: jest.fn(),
 			sendPasswordResetEmail: jest.fn(),
+			sendAccountExistsEmail: jest.fn(),
 		};
 		logError = jest
 			.spyOn(Logger.prototype, 'error')
 			.mockImplementation(() => undefined);
 		module = await Test.createTestingModule({
 			providers: [
+				securityEventsProvider,
 				runtimeConfigProvider,
 				AuthService,
 				{ provide: PrismaService, useValue: prisma },
@@ -64,27 +72,88 @@ describe('AuthService', () => {
 		await module.close();
 	});
 
-	it.each([UserRole.USER, UserRole.EXPERT])(
-		'should register only safe account fields when account type is supported (%p)',
-		async (role) => {
-			users.create.mockResolvedValue({ ...user, role });
-			const result = await service.register(dto, role);
-			expect(users.create).toHaveBeenCalledWith({
-				name: dto.name,
+	describe('registration that does not reveal accounts (API-001)', () => {
+		const flush = () => new Promise((done) => setImmediate(done));
+		const outcome = (created: boolean, verified: boolean) => ({
+			created,
+			account: {
+				id: user.id,
+				name: user.name,
 				email: 'user@example.com',
-				password,
-				role,
-			});
-			expect(result.user).not.toHaveProperty('password');
-			expect(result.user).not.toHaveProperty('email_verified_at');
-		},
-	);
+				emailVerifiedAt: verified ? new Date() : null,
+			},
+		});
+		let verification: jest.SpyInstance;
+		beforeEach(() => {
+			verification = jest
+				.spyOn(service, 'sendVerificationEmail')
+				.mockResolvedValue(undefined);
+		});
+
+		it.each([UserRole.USER, UserRole.EXPERT])(
+			'should create the account and send a verification link when the email is new (%p)',
+			async (role) => {
+				users.register.mockResolvedValue(outcome(true, false));
+				await expect(
+					service.register(dto, role),
+				).resolves.toBeUndefined();
+				expect(users.register).toHaveBeenCalledWith({
+					name: dto.name,
+					email: 'user@example.com',
+					password,
+					role,
+				});
+				await flush();
+				expect(verification).toHaveBeenCalledWith('user@example.com');
+				expect(mail.sendAccountExistsEmail).not.toHaveBeenCalled();
+			},
+		);
+
+		it('should answer exactly like a new sign-up and notify the owner when the email is verified', async () => {
+			users.register.mockResolvedValue(outcome(true, false));
+			const fresh = await service.register(dto, UserRole.USER);
+			users.register.mockResolvedValue(outcome(false, true));
+			const existing = await service.register(dto, UserRole.EXPERT);
+			expect(existing).toEqual(fresh);
+			await flush();
+			expect(mail.sendAccountExistsEmail).toHaveBeenCalledWith(
+				'user@example.com',
+				user.name,
+			);
+			expect(verification).toHaveBeenCalledTimes(1);
+		});
+
+		it('should resend the verification link instead of a notice when the existing account is unverified', async () => {
+			users.register.mockResolvedValue(outcome(false, false));
+			await service.register(dto, UserRole.USER);
+			await flush();
+			expect(verification).toHaveBeenCalledWith('user@example.com');
+			expect(mail.sendAccountExistsEmail).not.toHaveBeenCalled();
+		});
+
+		it('should keep the response and hide the address when the notice cannot be sent', async () => {
+			users.register.mockResolvedValue(outcome(false, true));
+			mail.sendAccountExistsEmail.mockRejectedValue(
+				new Error('SMTP rejected user@example.com'),
+			);
+			await expect(
+				service.register(dto, UserRole.USER),
+			).resolves.toBeUndefined();
+			await flush();
+			expect(logError).toHaveBeenCalledWith(
+				'Account notice could not be completed',
+			);
+			expect(JSON.stringify(logError.mock.calls)).not.toContain(
+				'example.com',
+			);
+		});
+	});
 
 	it('should reject administrator registration when invoked outside public controllers', async () => {
 		await expect(service.register(dto, UserRole.ADMIN)).rejects.toThrow(
 			'Unsupported registration type',
 		);
-		expect(users.create).not.toHaveBeenCalled();
+		expect(users.register).not.toHaveBeenCalled();
 	});
 
 	it.each([UserRole.USER, UserRole.EXPERT, UserRole.ADMIN])(
@@ -117,6 +186,44 @@ describe('AuthService', () => {
 			expect(sessions.create).not.toHaveBeenCalled();
 		},
 	);
+
+	it.each([UserRole.USER, UserRole.EXPERT])(
+		'should refuse a session with EMAIL_NOT_VERIFIED when the password is right but the email is unverified (%p)',
+		async (role) => {
+			users.findForAuthentication.mockResolvedValue({
+				...user,
+				role,
+				emailVerifiedAt: null,
+			});
+			const failure = service.login(dto, role);
+			await expect(failure).rejects.toMatchObject({
+				status: 403,
+				response: { code: 'EMAIL_NOT_VERIFIED' },
+			});
+			expect(sessions.create).not.toHaveBeenCalled();
+		},
+	);
+
+	it('should keep unverified email from deciding the answer when the password is wrong', async () => {
+		users.findForAuthentication.mockResolvedValue({
+			...user,
+			emailVerifiedAt: null,
+			password: bcrypt.hashSync('Different123', 4),
+		});
+		await expect(service.login(dto, UserRole.USER)).rejects.toThrow(
+			'Invalid credentials',
+		);
+	});
+
+	it('should let an operator-provisioned administrator sign in without email verification', async () => {
+		users.findForAuthentication.mockResolvedValue({
+			...user,
+			role: UserRole.ADMIN,
+			emailVerifiedAt: null,
+		});
+		await service.login(dto, UserRole.ADMIN);
+		expect(sessions.create).toHaveBeenCalled();
+	});
 
 	it('should reject over-limit passwords when login bypasses DTO transformation', async () => {
 		await expect(
@@ -193,7 +300,10 @@ describe('AuthService', () => {
 	});
 
 	it('should issue a verification token when email is unverified', async () => {
-		users.findForAuthentication.mockResolvedValue(user);
+		users.findForAuthentication.mockResolvedValue({
+			...user,
+			emailVerifiedAt: null,
+		});
 		await service.sendVerificationEmail(dto.email);
 		expect(prisma.emailVerificationToken.updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -210,7 +320,7 @@ describe('AuthService', () => {
 	it('should avoid issuing another verification token when email is already verified', async () => {
 		users.findForAuthentication.mockResolvedValue({
 			...user,
-			email_verified_at: new Date(),
+			emailVerifiedAt: new Date(),
 		});
 		await service.sendVerificationEmail(user.email);
 		expect(prisma.emailVerificationToken.create).not.toHaveBeenCalled();
@@ -241,7 +351,7 @@ describe('AuthService', () => {
 		await expect(service.verifyAccount(token)).resolves.toBeUndefined();
 		expect(prisma.user.update).toHaveBeenCalledWith({
 			where: { id: user.id },
-			data: { email_verified_at: expect.any(Date) as unknown },
+			data: { emailVerifiedAt: expect.any(Date) as unknown },
 			select: { id: true },
 		});
 	});
@@ -276,6 +386,11 @@ describe('AuthService', () => {
 		prisma.passwordResetToken.updateMany.mockResolvedValue({ count: 1 });
 		const result = await service.resetPassword(token, password);
 		expect(result).toEqual({ message: 'Password reset successfully' });
+		// The emailed reset link proves the mailbox, so it also verifies the email.
+		expect(prisma.user.updateMany).toHaveBeenCalledWith({
+			where: { id: user.id, emailVerifiedAt: null },
+			data: { emailVerifiedAt: expect.any(Date) as unknown },
+		});
 		expect(prisma.refreshToken.deleteMany).toHaveBeenCalledWith({
 			where: { userId: user.id },
 		});

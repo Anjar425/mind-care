@@ -1,5 +1,6 @@
 import {
 	BadRequestException,
+	ForbiddenException,
 	Injectable,
 	Logger,
 	ServiceUnavailableException,
@@ -19,6 +20,7 @@ import {
 } from '@/domain/identity/account-validation.util';
 import { generateToken, hashToken } from '@/domain/identity/token.util';
 import { AuthSessionService } from './auth-session.service';
+import { requiresVerifiedEmail } from './email-verification.policy';
 import { withTransaction } from '../../infrastructure/prisma/transaction';
 import type {
 	AccessPrincipal,
@@ -27,6 +29,7 @@ import type {
 	RegisterInput,
 } from './identity.types';
 import { IDENTITY_TX } from './identity-persistence';
+import { SecurityEventService } from '../security-events/security-event.service';
 
 @Injectable()
 export class AuthService {
@@ -38,28 +41,42 @@ export class AuthService {
 		private readonly sessions: AuthSessionService,
 		private readonly mailService: MailService,
 		private readonly config: ConfigService<RuntimeEnvironment, true>,
+		private readonly events: SecurityEventService,
 	) {}
 
-	async register(dto: RegisterInput, role: UserRole) {
+	/**
+	 * Same response whether or not the email is registered (API-001), so sign-up cannot be used to
+	 * find accounts. Only the email differs: a new or still unverified account gets a verification
+	 * link, a verified one gets a notice pointing to sign-in and password recovery.
+	 */
+	async register(dto: RegisterInput, role: UserRole): Promise<void> {
 		if (role !== UserRole.USER && role !== UserRole.EXPERT) {
 			throw new BadRequestException('Unsupported registration type');
 		}
-		const user = await this.userService.create({
+		const { created, account } = await this.userService.register({
 			name: dto.name,
 			email: normalizeEmail(dto.email),
 			password: dto.password,
 			role,
 		});
-		void this.sendVerificationEmail(user.email);
-		return {
-			user: {
-				id: user.id,
-				name: user.name,
-				email: user.email,
-				role: user.role,
-				created_at: user.created_at,
-			},
-		};
+		if (created || !account.emailVerifiedAt)
+			void this.sendVerificationEmail(account.email);
+		else void this.sendAccountExistsNotice(account.email, account.name);
+	}
+
+	private async sendAccountExistsNotice(
+		email: string,
+		name: string,
+	): Promise<void> {
+		try {
+			await this.mailService.sendAccountExistsEmail(
+				normalizeEmail(email),
+				name,
+			);
+		} catch {
+			// Never log the address, the account or provider errors.
+			this.logger.error('Account notice could not be completed');
+		}
 	}
 
 	async login(dto: LoginInput, role: UserRole) {
@@ -79,9 +96,31 @@ export class AuthService {
 			user.role !== (role as string) ||
 			!(await bcrypt.compare(dto.password, user.password))
 		) {
+			// The subject is known only when the email belongs to an account.
+			await this.events.record('LOGIN_FAILED', {
+				subjectUserId: user?.id,
+			});
 			throw new UnauthorizedException('Invalid credentials');
 		}
-		return this.sessions.create(user.id, user.password, role);
+		// Self-registered accounts must prove the email first; administrators are provisioned by
+		// operators. Checked only after the password matched, so it reveals nothing about which
+		// emails are registered.
+		if (requiresVerifiedEmail(user.role) && !user.emailVerifiedAt) {
+			await this.events.record('LOGIN_FAILED', {
+				subjectUserId: user.id,
+			});
+			throw new ForbiddenException({
+				message: 'Verify your email before signing in',
+				error: 'Forbidden',
+				code: 'EMAIL_NOT_VERIFIED',
+			});
+		}
+		const tokens = await this.sessions.create(user.id, user.password, role);
+		await this.events.record('LOGIN_SUCCEEDED', {
+			actorUserId: user.id,
+			subjectUserId: user.id,
+		});
+		return tokens;
 	}
 
 	refresh(principal: RefreshPrincipal) {
@@ -90,6 +129,10 @@ export class AuthService {
 
 	async logout(principal: AccessPrincipal) {
 		await this.sessions.revoke(principal.sub, principal.sid);
+		await this.events.record('SESSION_REVOKED', {
+			actorUserId: principal.sub,
+			subjectUserId: principal.sub,
+		});
 		return { message: 'Logged out successfully' };
 	}
 
@@ -98,7 +141,7 @@ export class AuthService {
 			const user = await this.userService.findForAuthentication(
 				normalizeEmail(email),
 			);
-			if (!user || user.email_verified_at) return;
+			if (!user || user.emailVerifiedAt) return;
 			const rawToken = generateToken();
 			const expiresAt = this.expiry(
 				this.config.get('VERIFICATION_TOKEN_EXPIRY_MINUTES', {
@@ -135,6 +178,7 @@ export class AuthService {
 
 	async verifyAccount(token: string): Promise<void> {
 		assertOpaqueToken(token);
+		let verifiedUserId: string | undefined;
 		await withTransaction(
 			this.prismaService,
 			async (tx) => {
@@ -164,12 +208,17 @@ export class AuthService {
 					);
 				await tx.user.update({
 					where: { id: verification.userId },
-					data: { email_verified_at: now },
+					data: { emailVerifiedAt: now },
 					select: { id: true },
 				});
+				verifiedUserId = verification.userId;
 			},
 			IDENTITY_TX,
 		);
+		await this.events.record('EMAIL_VERIFIED', {
+			actorUserId: verifiedUserId,
+			subjectUserId: verifiedUserId,
+		});
 	}
 
 	async forgotPassword(email: string): Promise<void> {
@@ -199,6 +248,9 @@ export class AuthService {
 				},
 				IDENTITY_TX,
 			);
+			await this.events.record('PASSWORD_RESET_REQUESTED', {
+				subjectUserId: user.id,
+			});
 			await this.mailService.sendPasswordResetEmail(
 				normalizeEmail(user.email),
 				rawToken,
@@ -245,6 +297,11 @@ export class AuthService {
 					data: { password },
 					select: { id: true },
 				});
+				// The reset link proved control of the mailbox, which is what verification proves.
+				await tx.user.updateMany({
+					where: { id: reset.userId, emailVerifiedAt: null },
+					data: { emailVerifiedAt: now },
+				});
 				await tx.refreshToken.deleteMany({
 					where: { userId: reset.userId },
 				});
@@ -255,6 +312,12 @@ export class AuthService {
 			},
 			IDENTITY_TX,
 		);
+		await this.events.record('PASSWORD_RESET_COMPLETED', {
+			subjectUserId: reset.userId,
+		});
+		await this.events.record('SESSIONS_REVOKED_ALL', {
+			subjectUserId: reset.userId,
+		});
 		return { message: 'Password reset successfully' };
 	}
 

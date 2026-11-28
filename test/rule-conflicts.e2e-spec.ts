@@ -10,7 +10,7 @@ type Plan = Awaited<ReturnType<RuleResolutionService['create']>>;
 describe('Conflict governance HTTP lifecycle (synthetic loopback)', () => {
 	let h: Awaited<ReturnType<typeof createRulesHttp>>;
 	let groupId: number;
-	const base = () => `/expert/groups/${groupId}`;
+	const base = () => `/api/v1/expert/groups/${groupId}`;
 	beforeEach(async () => {
 		h = await createRulesHttp(true);
 		groupId = h.mocks.groups.seedGroup([1, 2, 3, 4]);
@@ -139,7 +139,7 @@ describe('Conflict governance HTTP lifecycle (synthetic loopback)', () => {
 				.expect(400);
 		await h
 			.api()
-			.get('/expert/groups/0/rule-conflicts')
+			.get('/api/v1/expert/groups/0/rule-conflicts')
 			.set(groupHeaders())
 			.expect(400);
 		await h
@@ -179,7 +179,7 @@ describe('Conflict governance HTTP lifecycle (synthetic loopback)', () => {
 		};
 		const r = await h
 			.api()
-			.get('/admin/rule-conflicts')
+			.get('/api/v1/admin/rule-conflicts')
 			.set(admin)
 			.expect(200);
 		expect(JSON.stringify(r.body)).not.toMatch(
@@ -187,20 +187,20 @@ describe('Conflict governance HTTP lifecycle (synthetic loopback)', () => {
 		);
 		await h
 			.api()
-			.post(`/admin/rule-conflicts/${f.detail.id}/notify`)
+			.post(`/api/v1/admin/rule-conflicts/${f.detail.id}/notify`)
 			.set(admin)
 			.send({})
 			.expect(200);
 		await h
 			.api()
-			.post(`/admin/rule-conflicts/${f.detail.id}/notify`)
+			.post(`/api/v1/admin/rule-conflicts/${f.detail.id}/notify`)
 			.set(admin)
 			.send({})
 			.expect(429);
 		await h.api().get(f.path).set(admin).expect(403);
 		await h
 			.api()
-			.post(`/admin/rule-conflicts/${f.detail.id}/approve`)
+			.post(`/api/v1/admin/rule-conflicts/${f.detail.id}/approve`)
 			.set(admin)
 			.send({})
 			.expect(404);
@@ -213,7 +213,7 @@ describe('Conflict governance HTTP lifecycle (synthetic loopback)', () => {
 		const routes = Object.keys(doc.paths).filter(
 			(p) =>
 				p.includes('rule-conflicts') ||
-				p.includes('conflict-notifications') ||
+				p.includes('/expert/notifications') ||
 				p.includes('dass42-rule-assessment'),
 		);
 		expect(routes).toHaveLength(14);

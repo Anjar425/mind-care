@@ -24,13 +24,3 @@ export class AuthUserResDto {
 	})
 	role!: UserRole;
 }
-
-export class RegisteredAuthUserResDto extends AuthUserResDto {
-	@ApiProperty({
-		description: 'Account creation time',
-		type: String,
-		format: 'date-time',
-		example: '2026-01-01T00:00:00.000Z',
-	})
-	created_at!: Date;
-}

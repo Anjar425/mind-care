@@ -7,8 +7,8 @@ interface TestUser {
 	email: string;
 	password: string;
 	role: UserRole;
-	email_verified_at: Date | null;
-	created_at: Date;
+	emailVerifiedAt: Date | null;
+	createdAt: Date;
 }
 interface TestSession {
 	id: string;
@@ -50,8 +50,9 @@ export function createAuthMemoryStore(password: string) {
 			email: `${role.toLowerCase()}@example.com`,
 			password,
 			role,
-			email_verified_at: null,
-			created_at: new Date(),
+			// Signed-in fixtures need a verified email; tests that need one unverified clear it.
+			emailVerifiedAt: new Date(),
+			createdAt: new Date(),
 		});
 	}
 	const sessionMatches = (row: TestSession, where: SessionWhere) =>
@@ -116,12 +117,12 @@ export function createAuthMemoryStore(password: string) {
 				({
 					data,
 				}: {
-					data: Omit<TestUser, 'id' | 'email_verified_at'>;
+					data: Omit<TestUser, 'id' | 'emailVerifiedAt'>;
 				}) => {
 					const row = {
 						...data,
 						id: randomUUID(),
-						email_verified_at: null,
+						emailVerifiedAt: null,
 					};
 					users.set(row.id, row);
 					return Promise.resolve(row);
@@ -142,6 +143,23 @@ export function createAuthMemoryStore(password: string) {
 						);
 					Object.assign(current, data);
 					return Promise.resolve(current);
+				},
+			),
+			updateMany: jest.fn(
+				({
+					where,
+					data,
+				}: {
+					where: { id: string; emailVerifiedAt?: null };
+					data: Partial<TestUser>;
+				}) => {
+					const current = users.get(where.id);
+					const matches =
+						current &&
+						(where.emailVerifiedAt !== null ||
+							current.emailVerifiedAt === null);
+					if (matches) Object.assign(current, data);
+					return Promise.resolve({ count: matches ? 1 : 0 });
 				},
 			),
 		},

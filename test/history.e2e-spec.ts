@@ -24,6 +24,7 @@ import {
 	historyOwner,
 } from './history-mocks';
 import { runtimeConfigProvider, syntheticConfig } from './runtime-config.mock';
+import { securityEventsProvider } from './security-events.mock';
 
 describe('Private history HTTP: actual JWT session guard and services, synthetic persistence', () => {
 	let app: INestApplication<Server>;
@@ -40,6 +41,7 @@ describe('Private history HTTP: actual JWT session guard and services, synthetic
 			],
 			controllers: [HistoryController],
 			providers: [
+				securityEventsProvider,
 				HistoryService,
 				HistoryVaultService,
 				AuthSessionService,
@@ -77,16 +79,18 @@ describe('Private history HTTP: actual JWT session guard and services, synthetic
 	};
 	const put = (path: string, body: unknown, bearer = token()) =>
 		api()
-			.put('/me/history' + path)
+			.put('/api/v1/account/history' + path)
 			.auth(bearer, { type: 'bearer' })
 			.send(body as object);
 	it('should reject guests and revoked sessions before private writes', async () => {
-		const guest = await api().get('/me/history/vault').expect(401);
+		const guest = await api()
+			.get('/api/v1/account/history/vault')
+			.expect(401);
 		expect(guest.headers['cache-control']).toBe('no-store');
 		const bearer = token();
 		f.sessions.clear();
 		await api()
-			.get('/me/history/vault')
+			.get('/api/v1/account/history/vault')
 			.auth(bearer, { type: 'bearer' })
 			.expect(401);
 		expect(f.prisma.historyVault.create).not.toHaveBeenCalled();
@@ -94,7 +98,7 @@ describe('Private history HTTP: actual JWT session guard and services, synthetic
 	it('should deny administrators even for owner routes', async () => {
 		f.users.set(historyOwner, 'ADMIN');
 		await api()
-			.get('/me/history/vault')
+			.get('/api/v1/account/history/vault')
 			.auth(token(), { type: 'bearer' })
 			.expect(403);
 		expect(f.prisma.historyVault.findUnique).not.toHaveBeenCalled();
@@ -102,7 +106,7 @@ describe('Private history HTTP: actual JWT session guard and services, synthetic
 	it('should initialize opt-out and require explicit boolean storage consent', async () => {
 		const bearer = token();
 		const initialized = await api()
-			.post('/me/history/vault')
+			.post('/api/v1/account/history/vault')
 			.auth(bearer, { type: 'bearer' })
 			.send(historyInit())
 			.expect(201);
@@ -154,11 +158,11 @@ describe('Private history HTTP: actual JWT session guard and services, synthetic
 		await f.ready();
 		await f.service.save(historyOwner, historyEntryId, historyEntryInput());
 		await api()
-			.get('/me/history/entries/' + historyEntryId)
+			.get('/api/v1/account/history/entries/' + historyEntryId)
 			.auth(token(historyOther), { type: 'bearer' })
 			.expect(404);
 		await api()
-			.delete('/me/history/entries/' + historyEntryId)
+			.delete('/api/v1/account/history/entries/' + historyEntryId)
 			.auth(token(historyOther), { type: 'bearer' })
 			.send({ expectedVaultRevision: 2 })
 			.expect(404);
@@ -169,7 +173,7 @@ describe('Private history HTTP: actual JWT session guard and services, synthetic
 		await f.service.save(historyOwner, historyEntryId, historyEntryInput());
 		const before = f.vaults.get(historyOwner)!;
 		await api()
-			.delete('/me/history/entries')
+			.delete('/api/v1/account/history/entries')
 			.auth(token(), { type: 'bearer' })
 			.send({ expectedVaultRevision: 2 })
 			.expect(200);
@@ -184,9 +188,10 @@ describe('Private history HTTP: actual JWT session guard and services, synthetic
 			ciphertext: 'private'.repeat(10000),
 		}).expect(413);
 		expect(oversized.headers['cache-control']).toBe('no-store');
+		expect(oversized.body).toHaveProperty('code', 'HISTORY_TOO_LARGE');
 		expect(JSON.stringify(oversized.body)).not.toContain('privateprivate');
 		const malformed = await api()
-			.put('/me/history/consent')
+			.put('/api/v1/account/history/consent')
 			.auth(token(), { type: 'bearer' })
 			.set('Content-Type', 'application/json')
 			.send('{"private answer":')
@@ -202,23 +207,29 @@ describe('Private history HTTP: actual JWT session guard and services, synthetic
 			new Error('private result in database error'),
 		);
 		const response = await api()
-			.get('/me/history/vault')
+			.get('/api/v1/account/history/vault')
 			.auth(token(), { type: 'bearer' })
 			.expect(503);
 		expect(JSON.stringify(response.body)).not.toContain('private result');
-		expect(log).toHaveBeenCalledWith('API request failed');
+		expect(log).toHaveBeenCalledWith(
+			expect.stringMatching(/^API request failed \(/),
+		);
+		expect(JSON.stringify(log.mock.calls)).not.toContain('private result');
 	});
 	it('should publish typed private routes and omit admin/decrypt endpoints', () => {
 		const doc = SwaggerModule.createDocument(
 			app,
 			new DocumentBuilder().addBearerAuth().build(),
 		);
-		const save = doc.paths['/me/history/entries/{id}'].put!;
+		const save = doc.paths['/api/v1/account/history/entries/{id}'].put!;
 		expect(save.security).toEqual([{ bearer: [] }]);
 		expect(save.responses).toHaveProperty('201');
 		expect(save.responses).toHaveProperty('200');
 		expect(Object.keys(doc.paths)).not.toEqual(
-			expect.arrayContaining(['/admin/history', '/me/history/decrypt']),
+			expect.arrayContaining([
+				'/api/v1/admin/history',
+				'/api/v1/account/history/decrypt',
+			]),
 		);
 		expect(doc.components?.schemas).toHaveProperty(
 			'HistoryEntrySubmissionDto',
@@ -228,7 +239,7 @@ describe('Private history HTTP: actual JWT session guard and services, synthetic
 		f.users.set(historyOwner, 'EXPERT');
 		await f.ready();
 		await api()
-			.get('/me/history/vault')
+			.get('/api/v1/account/history/vault')
 			.auth(token(), { type: 'bearer' })
 			.expect(200);
 	});

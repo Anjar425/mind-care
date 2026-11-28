@@ -42,7 +42,7 @@ export function getReferenceSeedBundle(): ReferenceSeedBundle {
 		dass42: questions(DASS42_CATALOG),
 		conclusions: REFERENCE_CONCLUSIONS.map(({ category, severity }) => ({
 			category,
-			severty: severity,
+			severity: severity,
 		})),
 	};
 	const catalogDigest = createHash('sha256')

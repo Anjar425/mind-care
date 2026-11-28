@@ -25,6 +25,18 @@ describe('MailTemplateRenderer', () => {
 		},
 	);
 
+	it('should render the bundled account-exists template without token or expiry', () => {
+		const html = new MailTemplateRenderer().render('account-exists', {
+			firstName: 'Example',
+			actionUrl: 'http://localhost:5173/sign-in',
+			year: '2026',
+		});
+		expect(html).toContain('Hello Example,');
+		expect(html).toContain('href="http://localhost:5173/sign-in"');
+		expect(html).toContain('&copy; 2026 MindCare');
+		expect(html).not.toMatch(/\{\{/);
+	});
+
 	it('should escape injected markup in every value', () => {
 		const html = new MailTemplateRenderer().render('verify-email', {
 			...values,

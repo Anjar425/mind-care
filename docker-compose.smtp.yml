@@ -1,0 +1,14 @@
+# Opt-in: send the compose API's email through the real SMTP server configured in .env,
+# instead of the Mailpit catcher that docker-compose.yml uses by default.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.smtp.yml up -d api
+#
+# Mail then reaches real inboxes: use only addresses you own. MAIL_USER, MAIL_PASS and
+# MAIL_FROM already come from .env through env_file; this file only removes the Mailpit
+# override of host, port and TLS mode.
+services:
+  api:
+    environment:
+      MAIL_HOST: ${MAIL_HOST:?set MAIL_HOST in .env to use real SMTP}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_SECURE: ${MAIL_SECURE:-false}

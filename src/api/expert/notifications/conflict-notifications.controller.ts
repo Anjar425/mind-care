@@ -31,7 +31,7 @@ type Request = { user: AccessPrincipal };
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('EXPERT')
-@Controller('expert/me/conflict-notifications')
+@Controller('expert/notifications')
 export class ConflictNotificationsController {
 	constructor(private readonly conflicts: RuleConflictsService) {}
 	@Get()

@@ -1,11 +1,11 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiCommonResponse } from '../common/swagger/api-common-response.decorator';
 import { HealthService } from './health.service';
 import { HealthResponseDto } from './dto/health-response.dto';
 
 @ApiTags('Health')
-@Controller('health')
+@Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {
 	constructor(private readonly health: HealthService) {}
 

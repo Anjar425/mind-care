@@ -18,7 +18,7 @@ describe('DASS42 authoring lifecycle HTTP integration', () => {
 	});
 	it('should preserve revisions through collaborate/revise/history/archive and own post-removal read without changing group timestamps', async () => {
 		const id = h.mocks.groups.seedGroup([1, 2]);
-		const base = `/expert/groups/${id}/dass42-rules`;
+		const base = `/api/v1/expert/groups/${id}/dass42-rules`;
 		const before = structuredClone(h.mocks.groups.state.groups);
 		let r = httpData<RuleDetailDto>(
 			await h
@@ -75,7 +75,7 @@ describe('DASS42 authoring lifecycle HTTP integration', () => {
 			httpData<RulesPageDto>(
 				await h
 					.api()
-					.get('/expert/me/dass42-rules?lifecycle=all')
+					.get('/api/v1/expert/dass42-rules?lifecycle=all')
 					.set(groupHeaders())
 					.expect(200),
 			).items,

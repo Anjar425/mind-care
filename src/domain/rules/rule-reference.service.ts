@@ -34,20 +34,20 @@ export class RuleReferenceService {
 					JSON.stringify(c.conclusion),
 					{
 						category: c.conclusion.category,
-						severty: c.conclusion.severity,
+						severity: c.conclusion.severity,
 					},
 				]),
 			).values(),
 		];
 		const rows = await tx.conclusion.findMany({
 			where: { OR: pairs },
-			select: { id: true, category: true, severty: true },
+			select: { id: true, category: true, severity: true },
 		});
 		return contents.map((content) => {
 			const row = rows.find(
 				(r) =>
 					r.category === content.conclusion.category &&
-					r.severty === content.conclusion.severity,
+					r.severity === content.conclusion.severity,
 			);
 			if (!row)
 				throw new ServiceUnavailableException(
@@ -69,17 +69,17 @@ export class RuleReferenceService {
 			);
 		const conclusion = await tx.conclusion.findUnique({
 			where: {
-				category_severty: {
+				category_severity: {
 					category: content.conclusion.category,
-					severty: content.conclusion.severity,
+					severity: content.conclusion.severity,
 				},
 			},
-			select: { id: true, category: true, severty: true },
+			select: { id: true, category: true, severity: true },
 		});
 		if (
 			!conclusion ||
 			conclusion.category !== content.conclusion.category ||
-			conclusion.severty !== content.conclusion.severity
+			conclusion.severity !== content.conclusion.severity
 		)
 			throw new ServiceUnavailableException(
 				'Rule conclusion reference unavailable',

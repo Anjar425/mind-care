@@ -4,6 +4,9 @@ import { CredentialMaintenanceJob } from './credential-maintenance.job';
 import { CredentialStorageService } from '../domain/credentials/credential-storage.service';
 import { PrismaService } from '../infrastructure/prisma/prisma.service';
 import { MailService } from '../infrastructure/mail/mail.service';
+import { JobLeaseService } from '../infrastructure/prisma/job-lease.service';
+import { PostgresThrottlerStorage } from '../infrastructure/rate-limit/postgres-throttler.storage';
+import { SecurityEventService } from '../domain/security-events/security-event.service';
 import { createCredentialMocks } from '../../test/credential-mocks';
 import { runtimeConfigProvider } from '../../test/runtime-config.mock';
 
@@ -12,6 +15,15 @@ describe('CredentialMaintenanceJob', () => {
 	let service: CredentialMaintenanceJob;
 	let mocks: ReturnType<typeof createCredentialMocks>;
 	const mail = { sendCredentialExpiryReminder: jest.fn() };
+	// Runs the work as if this instance always obtained the lease.
+	const lease = {
+		run: jest.fn(
+			async (_name: string, _ms: number, work: () => Promise<void>) => {
+				await work();
+				return true;
+			},
+		),
+	};
 	let warnings: jest.SpyInstance;
 	beforeEach(async () => {
 		mocks = createCredentialMocks();
@@ -26,6 +38,15 @@ describe('CredentialMaintenanceJob', () => {
 				{ provide: PrismaService, useValue: mocks.prisma },
 				{ provide: CredentialStorageService, useValue: mocks.storage },
 				{ provide: MailService, useValue: mail },
+				{ provide: JobLeaseService, useValue: lease },
+				{
+					provide: SecurityEventService,
+					useValue: { purgeExpired: jest.fn().mockResolvedValue(0) },
+				},
+				{
+					provide: PostgresThrottlerStorage,
+					useValue: { purgeExpired: jest.fn().mockResolvedValue(0) },
+				},
 			],
 		}).compile();
 		service = module.get(CredentialMaintenanceJob);
@@ -161,5 +182,15 @@ describe('CredentialMaintenanceJob', () => {
 		expect(mocks.prisma.credentialRevision.findMany).toHaveBeenCalledTimes(
 			2,
 		);
+	});
+	it('should skip the whole tick when another instance holds the lease', async () => {
+		lease.run.mockResolvedValueOnce(false);
+		await service.tick();
+		expect(lease.run).toHaveBeenCalledWith(
+			'credential-maintenance',
+			expect.any(Number),
+			expect.any(Function),
+		);
+		expect(mocks.prisma.credentialRevision.findMany).not.toHaveBeenCalled();
 	});
 });

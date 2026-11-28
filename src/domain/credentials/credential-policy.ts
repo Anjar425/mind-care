@@ -39,7 +39,7 @@ export function numberIdentity(value: string): string {
 export function credentialEligibility(
 	expert: {
 		credentialSuspendedAt: Date | null;
-		user: { name: string; role: string; email_verified_at: Date | null };
+		user: { name: string; role: string; emailVerifiedAt: Date | null };
 		credentialRevisions: Pick<
 			CredentialRevision,
 			'type' | 'status' | 'expiresAt' | 'holderName'
@@ -54,7 +54,7 @@ export function credentialEligibility(
 			reasons: ['CREDENTIALS_UNSUBMITTED'],
 		};
 	if (expert.user.role !== 'EXPERT') reasons.push('EXPERT_ROLE_REQUIRED');
-	if (!expert.user.email_verified_at) reasons.push('EMAIL_UNVERIFIED');
+	if (!expert.user.emailVerifiedAt) reasons.push('EMAIL_UNVERIFIED');
 	if (expert.credentialSuspendedAt) reasons.push('SUSPENDED');
 	for (const type of ['STR', 'SIP'] as const) {
 		const approved = expert.credentialRevisions.filter(

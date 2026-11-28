@@ -7,7 +7,7 @@ import type { RuleDetailDto } from '../../../common/dto/rules/rule-responses.dto
 describe('DASS42 rule HTTP boundary', () => {
 	let h: Awaited<ReturnType<typeof createRulesHttp>>;
 	let groupId: number;
-	const path = () => `/expert/groups/${groupId}/dass42-rules`;
+	const path = () => `/api/v1/expert/groups/${groupId}/dass42-rules`;
 	beforeEach(async () => {
 		h = await createRulesHttp();
 		groupId = h.mocks.groups.seedGroup([1, 2]);
@@ -124,7 +124,7 @@ describe('DASS42 rule HTTP boundary', () => {
 			h.app,
 			new DocumentBuilder().addBearerAuth().build(),
 		);
-		const base = '/expert/groups/{groupId}/dass42-rules';
+		const base = '/api/v1/expert/groups/{groupId}/dass42-rules';
 		expect(doc.paths[base].post?.security).toEqual([{ bearer: [] }]);
 		expect(doc.paths[base].post?.responses).toHaveProperty('201');
 		expect(
@@ -141,7 +141,7 @@ describe('DASS42 rule HTTP boundary', () => {
 		async (id) => {
 			await h
 				.api()
-				.get(`/expert/groups/${id}/dass42-rules`)
+				.get(`/api/v1/expert/groups/${id}/dass42-rules`)
 				.set(groupHeaders())
 				.expect(400);
 			await h

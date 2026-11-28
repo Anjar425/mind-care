@@ -96,15 +96,71 @@ pnpm build          # runs prisma generate, then nest build (copies mail templat
 pnpm start:prod     # node dist/main
 ```
 
-Swagger UI is served at `/docs` outside production. `NODE_ENV=production` is deliberately rejected until the production deployment profile is approved.
+Swagger UI is served at `/docs` when `SWAGGER_MODE=public` (the default outside production).
+
+### Production profile
+
+`NODE_ENV=production` is supported and assumes the first deployment layout: the frontend and the API on one origin behind a single TLS-terminating reverse proxy.
+
+| Setting                                         | Production default         | Effect                                                                                 |
+| ----------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------- |
+| `CORS_ORIGIN`                                   | none (same-origin)         | No CORS headers; set https origins (comma list) only for a separate frontend origin    |
+| `TRUST_PROXY_HOPS`                              | 0 (set 1 behind the proxy) | Express trusts that many `X-Forwarded-For` hops; rate limits key on the real client IP |
+| `SWAGGER_MODE`                                  | `off`                      | `/docs`, `/docs-json` and `/docs-yaml` return 404                                      |
+| `ACCESS_TOKEN_TTL_SECONDS` / `SESSION_TTL_DAYS` | 900 / 7                    | Access token and refresh session lifetimes                                             |
+| `DB_POOL_MAX` / `DB_STATEMENT_TIMEOUT_MS`       | 10 / 15000                 | Connection pool size; per-statement and idle-in-transaction timeout                    |
+
+Production also requires `https://` for `FRONTEND_URL` and every CORS origin, sends HSTS (1 year, subdomains) and Helmet's default strict CSP. The reference seeder still refuses `NODE_ENV=production` (ingestion needs its own authorization policy), so production migrations run `prisma migrate deploy` only; seed reference data separately until that policy exists. Secrets, TLS, backups and point-in-time recovery are provider configuration, not part of this repository.
+
+Try the profile locally (synthetic values, Swagger off, HSTS on):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --build --wait api
+```
+
+### HTTP API conventions
+
+- Every route lives under `/api/v1` (`API_BASE_PATH` in `src/shared/contracts/api.ts`); only the probes `/health/live` and `/health/ready` are unversioned.
+- No `/me` routes: the caller is implied by the access token. Own resources are `/api/v1/account/...` (history) and `/api/v1/expert/...` (profile, preferences, credentials, groups, group invitations, leadership transfers, DASS42 rules, notifications).
+- Every error body is `{ statusCode, code, message[], error }`. `code` is stable and catalogued in `src/shared/contracts/error-codes.ts` (`ErrorCode` in the OpenAPI document); clients branch on `code`, never on `message`. A service may set a catalogued code explicitly with `new HttpException({ message, code }, status)`; history and screening routes always use their fixed, redacted code per status.
+- Action rate limits are declared on the handler with `@RateLimit('login' | 'register' | ...)`; the no-store/body-bound privacy middleware is mounted at the controller's own base path (`PRIVACY_BOUNDARIES` in `src/api/app.setup.ts`). Renaming a route therefore cannot silently drop either.
+
+### Secrets and key rotation
+
+JWT signing keys and the credential encryption key are key rings (`JWT_ACCESS_KEYS`, `JWT_REFRESH_KEYS`, `CREDENTIAL_ENCRYPTION_KEYS`, each `kid:secret,...`, newest first). Tokens carry the key id in their header and sealed values start with `v2.<kid>.`, so a new key can be introduced without logging anyone out, and `pnpm credentials:reencrypt [--apply]` moves stored credential data to the new key before the old one is removed. Without a ring, the existing single secrets keep working as key `k0`. Procedure: [docs/runbooks/key-rotation.md](docs/runbooks/key-rotation.md).
+
+### Observability
+
+- **Request id.** Every response carries `X-Request-Id` and every error body a `requestId`. Behind a trusted proxy (`TRUST_PROXY_HOPS` > 0) an incoming UUID `X-Request-Id` is reused; otherwise a new one is generated. Quote it when reporting a problem.
+- **Logs.** JSON on stdout (pino via `nestjs-pino`, level `LOG_LEVEL`). One access line per request with an allow-list only: `requestId, method, route` (template, never the URL), `status, durationMs, role, userIdHash, errorCode`. Query strings, headers, bodies, IPs and tokens are never logged; application log calls use constant messages and carry the request id.
+- **Metrics.** `METRICS_PORT` (unset/0 = off) serves Prometheus `GET /metrics` on a separate port that must not be published: `http_request_duration_seconds{route,method,status}`, `rate_limit_rejections_total{limit}`, `rate_limit_store_errors_total{outcome}`, `job_runs_total{job,result}`, `email_send_failures_total`, `security_events_total{type,stored}` and default process metrics. The compose stack enables it on 9464 inside the network.
+- **Security events.** `SecurityEvent` rows for sign-in success/failure/rate limiting, refresh-token reuse, session revocation, password reset request/completion, email verification and admin credential review. Stored: event type, actor/subject user ids, request id, an HMAC of the client IP and a user-agent family (`browser`, `mobile`, `cli`, `other`) — never emails, tokens or raw IPs. Deleted after `SECURITY_EVENT_RETENTION_DAYS` (default 365). Recording never fails a request. A read API for admins comes with admin MFA (Phase 5).
+
+### Running more than one instance
+
+- **Rate limits are shared.** Counters live in PostgreSQL (UNLOGGED table `RateLimitBucket`, updated atomically by the `rate_limit_hit()` function), so every instance enforces one quota. Keys are SHA-256 hashes; no IP or email is stored.
+- **Per-account limits.** Login (`RATE_LIMIT_LOGIN_ACCOUNT`, default 10) and register / forgot-password / resend-verification (`RATE_LIMIT_EMAIL_ACCOUNT`, default 5) are also limited per submitted email, whatever the client IP. The 429 body is the same for existing and unknown addresses.
+- **Sign-in requires a verified email** for USER and EXPERT accounts: a correct password on an unverified email returns `403` with code `EMAIL_NOT_VERIFIED` (a wrong password stays a generic `401`), and a refresh of such a session is refused. Completing a password reset also verifies the email, since the reset link proves the mailbox. ADMIN accounts are provisioned by operators and are not gated.
+- **Registration does not reveal accounts.** `POST /auth/{user,expert}/register` always answers `201` with the same body and no data. A new or unverified address receives a verification link; an already verified address receives an "account exists" notice with a sign-in link instead of a `409`. The password is hashed in both cases so the timing matches.
+- **If the counter store is unavailable**, general traffic and screenings continue; login, registration, forgot-password, resend-verification, refresh and credential upload return 503 `UNAVAILABLE`.
+- **Scheduled work runs on one instance at a time.** The credential maintenance job takes a lease row (`JobLease`) each tick; other instances skip. A lease of a crashed instance expires after 10 minutes. The same tick deletes expired rate-limit buckets.
+- **Credential documents** must use object storage (`STORAGE_DRIVER=s3`) with more than one instance; `local` keeps them under `.private/` on one machine. `pnpm storage:migrate [--apply]` copies existing documents to the bucket and verifies each copy.
 
 ### Run with Docker
 
 ```bash
-docker compose up --build     # postgres, mailpit, one-shot migrate+seed, API on :3000
+docker compose up --build     # postgres, mailpit, rustfs, one-shot migrate+seed, API on :3000
 ```
 
-The `api` service reads `.env` (optional) and overrides `DATABASE_URL` and `MAIL_*` to the compose services. Credential documents persist in the `credentials` volume. The image runs with `NODE_ENV=development` and is for local/CI use only until the production profile exists.
+The `api` service reads `.env` (optional) and overrides `DATABASE_URL` and the SMTP host, port and TLS mode to the compose services. **Email goes to Mailpit, not to real inboxes**: open http://localhost:8025 to read verification and reset links. To send through the real SMTP server in `.env` instead (only to addresses you own):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.smtp.yml up -d api
+```
+
+Set `FRONTEND_URL` to the frontend (`http://localhost:3001` for `mind-care-fe`), never to the API's own port, or the links in those emails open the API.
+
+Credential documents persist in the `credentials` volume (`STORAGE_DRIVER=local`); `rustfs` is an S3-compatible store on `127.0.0.1:9100` (console 9101) for the tests and for trying `STORAGE_DRIVER=s3`. Metrics are served on port 9464 inside the compose network only. The runtime image defaults to `NODE_ENV=production`; the compose stack sets `development` explicitly, and `docker-compose.production.yml` switches it to the production profile.
 
 ## Quality checks
 
@@ -131,13 +187,13 @@ SHADOW_DATABASE_URL=postgresql://mindcare:mindcare@127.0.0.1:5432/mindcare_shado
 Then:
 
 ```bash
-docker compose up -d postgres   # creates mindcare_test and mindcare_shadow on first start
+docker compose up -d postgres rustfs   # PostgreSQL (creates mindcare_test/_shadow) + S3-compatible storage
 pnpm test:db
 ```
 
-A value set in the shell overrides `.env` (PowerShell: `$env:DB_TEST_DATABASE_URL="..."`; bash: `DB_TEST_DATABASE_URL=... pnpm test:db`).
+A value set in the shell overrides `.env` (PowerShell: `$env:DB_TEST_DATABASE_URL="..."`; bash: `DB_TEST_DATABASE_URL=... pnpm test:db`). The object-storage tests use the compose RustFS by default; `S3_TEST_ENDPOINT`, `S3_TEST_ACCESS_KEY` and `S3_TEST_SECRET_KEY` override it.
 
-`test:db` **drops and recreates** the database in `DB_TEST_DATABASE_URL` (`prisma migrate reset`), seeds reference data, then runs `test/db/**/*.db-spec.ts`: refresh-token races, password-reset revocation, serializable retries, row and advisory locks, reminder leases, history vault concurrency and seeder idempotency. It refuses any database whose name does not end in `_test` and never uses `DATABASE_URL`.
+`test:db` **drops and recreates** the database in `DB_TEST_DATABASE_URL` (`prisma migrate reset`), seeds reference data, then runs `test/db/**/*.db-spec.ts`: refresh-token races, password-reset revocation, serializable retries, row and advisory locks, reminder leases, history vault concurrency, seeder idempotency, rate limits and job leases shared by two instances, security events, the object-store contract (local and S3), storage migration and a full credential key rotation. It refuses any database whose name does not end in `_test` and never uses `DATABASE_URL`.
 
 ### Migrations and API contract
 
@@ -152,13 +208,13 @@ Regenerate the committed contract with `pnpm build && pnpm openapi:generate` whe
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `master`:
 
-| Job          | Checks                                                                                                           |
-| ------------ | ---------------------------------------------------------------------------------------------------------------- |
-| quality      | typecheck, lint, format, all tests with coverage                                                                 |
-| database     | migrations on an empty PostgreSQL 16, drift check, seeder twice, `test:db`                                       |
-| api-contract | `docs/openapi.json` up to date; breaking changes vs. the base branch (accept with the `breaking-change` label)   |
-| image        | builds `runtime` and `migrator` images, starts the compose stack with `docker/smoke.env`, probes `/health/ready` |
-| audit        | blocks on high or critical production advisories                                                                 |
+| Job          | Checks                                                                                                                                                                                                               |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| quality      | typecheck, lint, format, all tests with coverage                                                                                                                                                                     |
+| database     | migrations on an empty PostgreSQL 16, drift check, seeder twice, `test:db` against PostgreSQL and RustFS                                                                                                             |
+| api-contract | `docs/openapi.json` up to date; breaking changes vs. the base branch (accept with the `breaking-change` label)                                                                                                       |
+| image        | builds `runtime` and `migrator` images, starts the compose stack with `docker/smoke.env`, probes `/health/ready`, then restarts the API in the production profile and checks HSTS, `/docs` 404 and a versioned route |
+| audit        | blocks on high or critical production advisories                                                                                                                                                                     |
 
 Dependabot (`.github/dependabot.yml`) opens weekly npm and monthly Actions/Docker update PRs.
 

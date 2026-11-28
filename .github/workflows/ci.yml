@@ -59,11 +59,22 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
+      # S3-compatible object storage for the object-store and key-rotation tests.
+      rustfs:
+        image: rustfs/rustfs:1.0.4
+        env:
+          RUSTFS_ACCESS_KEY: mindcare
+          RUSTFS_SECRET_KEY: mindcare-storage
+        ports:
+          - 9100:9000
     env:
       PGPASSWORD: mindcare
       DATABASE_URL: postgresql://mindcare:mindcare@127.0.0.1:5432/mindcare
       SHADOW_DATABASE_URL: postgresql://mindcare:mindcare@127.0.0.1:5432/mindcare_shadow
       DB_TEST_DATABASE_URL: postgresql://mindcare:mindcare@127.0.0.1:5432/mindcare_test
+      S3_TEST_ENDPOINT: http://127.0.0.1:9100
+      S3_TEST_ACCESS_KEY: mindcare
+      S3_TEST_SECRET_KEY: mindcare-storage
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
@@ -86,7 +97,9 @@ jobs:
           pnpm build:seed
           node dist/reference-seed/scripts/seed-reference-data.js --apply
           node dist/reference-seed/scripts/seed-reference-data.js --apply
-      - name: Real-PostgreSQL tests
+      - name: Object storage is ready
+        run: curl --fail --silent --show-error --retry 20 --retry-delay 2 --retry-all-errors http://127.0.0.1:9100/health
+      - name: Real-PostgreSQL and object-storage tests
         run: pnpm test:db
 
   api-contract:
@@ -157,6 +170,52 @@ jobs:
           docker compose up -d --build --wait --wait-timeout 180 api
       - name: Readiness probe
         run: curl --fail --silent --show-error --retry 10 --retry-delay 3 --retry-all-errors http://127.0.0.1:3000/health/ready
+      # Signs tokens through the real module wiring; unit tests build their own JwtService (BE-001).
+      # Sign-in needs a verified email, so the link is read from the compose Mailpit.
+      - name: Register, verify, sign in, use and refresh a session
+        run: |
+          set -euo pipefail
+          api=http://127.0.0.1:3000/api/v1
+          mailpit=http://127.0.0.1:8025/api/v1
+          email="smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}@example.test"
+          password="Smoke${GITHUB_RUN_ID}x"
+          body() { jq -nc --arg e "$email" --arg p "$password" "$1"; }
+          curl --fail --silent --show-error -H 'content-type: application/json' \
+            -d "$(body '{name:"Smoke User",email:$e,password:$p,confirm_password:$p}')" \
+            "$api/auth/user/register" > /dev/null
+          refused=$(curl --silent --show-error -H 'content-type: application/json' \
+            -d "$(body '{email:$e,password:$p}')" "$api/auth/login")
+          test "$(jq -er '.code' <<< "$refused")" = EMAIL_NOT_VERIFIED
+          token=
+          for _ in $(seq 1 20); do
+            id=$(curl --fail --silent --show-error --get "$mailpit/search" \
+              --data-urlencode "query=to:\"$email\"" | jq -r '.messages[0].ID // empty')
+            if [ -n "$id" ]; then
+              token=$(curl --fail --silent --show-error "$mailpit/message/$id" \
+                | jq -r '.HTML' | grep -o 'token=[a-f0-9]\{64\}' | head -n 1 | cut -d= -f2)
+              break
+            fi
+            sleep 1
+          done
+          test -n "$token"
+          curl --fail --silent --show-error "$api/auth/verify?token=$token" > /dev/null
+          login=$(curl --fail --silent --show-error -H 'content-type: application/json' \
+            -d "$(body '{email:$e,password:$p}')" "$api/auth/login")
+          access=$(jq -er '.data.accessToken' <<< "$login")
+          refresh=$(jq -er '.data.refreshToken' <<< "$login")
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            -H "authorization: Bearer $access" "$api/account/history/entries")
+          test "$status" -ge 200 && test "$status" -lt 500 && test "$status" -ne 401
+          rotated=$(curl --fail --silent --show-error -X POST \
+            -H "authorization: Bearer $refresh" "$api/auth/refresh")
+          test "$(jq -er '.data.refreshToken' <<< "$rotated")" != "$refresh"
+      - name: Production profile (HSTS, no Swagger, versioned API)
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --wait --wait-timeout 180 api
+          curl --fail --silent --show-error --retry 10 --retry-delay 3 --retry-all-errors http://127.0.0.1:3000/health/ready
+          curl --silent --show-error --dump-header - --output /dev/null http://127.0.0.1:3000/health/live | grep -i '^strict-transport-security: max-age=31536000; includeSubDomains'
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/docs/)" = 404
+          curl --fail --silent --show-error --output /dev/null http://127.0.0.1:3000/api/v1/references/DASS21
       - name: Logs on failure
         if: failure()
         run: docker compose logs --no-color --tail 200

@@ -22,6 +22,14 @@ import { MessageResponse } from '@/api/common/swagger/message-response.decorator
 import { GlobalExceptionFilter } from '@/api/common/errors/global-exception.filter';
 import { ResponseInterceptor } from '@/api/common/interceptors/response.interceptor';
 
+const EXPECTED_CODE: Record<number, string> = {
+	400: 'VALIDATION_FAILED',
+	401: 'UNAUTHENTICATED',
+	403: 'FORBIDDEN',
+	404: 'NOT_FOUND',
+	409: 'CONFLICT',
+};
+
 class SampleDto {
 	@ApiProperty({
 		description: 'Submitted integer, without rescaling',
@@ -184,6 +192,7 @@ describe('Shared API HTTP contracts', () => {
 				.expect(status);
 			expect(response.body).toEqual({
 				statusCode: status,
+				code: EXPECTED_CODE[status],
 				message: ['Controlled rejection'],
 				error: 'Rejected',
 			});
