@@ -152,7 +152,15 @@ JWT signing keys and the credential encryption key are key rings (`JWT_ACCESS_KE
 docker compose up --build     # postgres, mailpit, rustfs, one-shot migrate+seed, API on :3000
 ```
 
-The `api` service reads `.env` (optional) and overrides `DATABASE_URL` and `MAIL_*` to the compose services. Credential documents persist in the `credentials` volume (`STORAGE_DRIVER=local`); `rustfs` is an S3-compatible store on `127.0.0.1:9100` (console 9101) for the tests and for trying `STORAGE_DRIVER=s3`. Metrics are served on port 9464 inside the compose network only. The runtime image defaults to `NODE_ENV=production`; the compose stack sets `development` explicitly, and `docker-compose.production.yml` switches it to the production profile.
+The `api` service reads `.env` (optional) and overrides `DATABASE_URL` and the SMTP host, port and TLS mode to the compose services. **Email goes to Mailpit, not to real inboxes**: open http://localhost:8025 to read verification and reset links. To send through the real SMTP server in `.env` instead (only to addresses you own):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.smtp.yml up -d api
+```
+
+Set `FRONTEND_URL` to the frontend (`http://localhost:3001` for `mind-care-fe`), never to the API's own port, or the links in those emails open the API.
+
+Credential documents persist in the `credentials` volume (`STORAGE_DRIVER=local`); `rustfs` is an S3-compatible store on `127.0.0.1:9100` (console 9101) for the tests and for trying `STORAGE_DRIVER=s3`. Metrics are served on port 9464 inside the compose network only. The runtime image defaults to `NODE_ENV=production`; the compose stack sets `development` explicitly, and `docker-compose.production.yml` switches it to the production profile.
 
 ## Quality checks
 
