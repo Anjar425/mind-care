@@ -170,6 +170,45 @@ jobs:
           docker compose up -d --build --wait --wait-timeout 180 api
       - name: Readiness probe
         run: curl --fail --silent --show-error --retry 10 --retry-delay 3 --retry-all-errors http://127.0.0.1:3000/health/ready
+      # Signs tokens through the real module wiring; unit tests build their own JwtService (BE-001).
+      # Sign-in needs a verified email, so the link is read from the compose Mailpit.
+      - name: Register, verify, sign in, use and refresh a session
+        run: |
+          set -euo pipefail
+          api=http://127.0.0.1:3000/api/v1
+          mailpit=http://127.0.0.1:8025/api/v1
+          email="smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}@example.test"
+          password="Smoke${GITHUB_RUN_ID}x"
+          body() { jq -nc --arg e "$email" --arg p "$password" "$1"; }
+          curl --fail --silent --show-error -H 'content-type: application/json' \
+            -d "$(body '{name:"Smoke User",email:$e,password:$p,confirm_password:$p}')" \
+            "$api/auth/user/register" > /dev/null
+          refused=$(curl --silent --show-error -H 'content-type: application/json' \
+            -d "$(body '{email:$e,password:$p}')" "$api/auth/login")
+          test "$(jq -er '.code' <<< "$refused")" = EMAIL_NOT_VERIFIED
+          token=
+          for _ in $(seq 1 20); do
+            id=$(curl --fail --silent --show-error --get "$mailpit/search" \
+              --data-urlencode "query=to:\"$email\"" | jq -r '.messages[0].ID // empty')
+            if [ -n "$id" ]; then
+              token=$(curl --fail --silent --show-error "$mailpit/message/$id" \
+                | jq -r '.HTML' | grep -o 'token=[a-f0-9]\{64\}' | head -n 1 | cut -d= -f2)
+              break
+            fi
+            sleep 1
+          done
+          test -n "$token"
+          curl --fail --silent --show-error "$api/auth/verify?token=$token" > /dev/null
+          login=$(curl --fail --silent --show-error -H 'content-type: application/json' \
+            -d "$(body '{email:$e,password:$p}')" "$api/auth/login")
+          access=$(jq -er '.data.accessToken' <<< "$login")
+          refresh=$(jq -er '.data.refreshToken' <<< "$login")
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            -H "authorization: Bearer $access" "$api/account/history/entries")
+          test "$status" -ge 200 && test "$status" -lt 500 && test "$status" -ne 401
+          rotated=$(curl --fail --silent --show-error -X POST \
+            -H "authorization: Bearer $refresh" "$api/auth/refresh")
+          test "$(jq -er '.data.refreshToken' <<< "$rotated")" != "$refresh"
       - name: Production profile (HSTS, no Swagger, versioned API)
         run: |
           docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --wait --wait-timeout 180 api

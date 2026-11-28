@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { escapeHtml } from '../../shared/utils/html';
 
-export type MailTemplateName = 'verify-email' | 'reset-password';
+export type MailTemplateName =
+	'verify-email' | 'reset-password' | 'account-exists';
 
 export const MAIL_TEMPLATE_DIRECTORY = Symbol('MAIL_TEMPLATE_DIRECTORY');
 

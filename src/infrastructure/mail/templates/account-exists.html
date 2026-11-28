@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; background: #f4f4f4; }
+    .content { background: white; padding: 30px; border-radius: 5px; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .button { display: inline-block; background: #0062cc; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+    .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="content">
+      <div class="header">
+        <h2>You Already Have an Account</h2>
+      </div>
+      <p>Hello {{firstName}},</p>
+      <p>Someone just tried to create a new MindCare account with this email address. You already have an account, so nothing was changed.</p>
+      <p>If it was you, sign in with your existing password:</p>
+      <a href="{{actionUrl}}" class="button">Sign In</a>
+      <p>Or copy and paste this link in your browser:</p>
+      <p><code>{{actionUrl}}</code></p>
+      <p>Forgot your password? Choose "Forgot password" on the sign-in page to get a reset link.</p>
+      <p>If it was not you, you can ignore this email. Your account and password are unchanged.</p>
+      <div class="footer">
+        <p>&copy; {{year}} MindCare. All rights reserved.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

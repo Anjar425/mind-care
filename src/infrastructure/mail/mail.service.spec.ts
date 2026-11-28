@@ -86,6 +86,24 @@ describe('MailService configuration', () => {
 			}),
 		);
 	});
+	it('should send an account-exists notice with a sign-in link and no token (API-001)', async () => {
+		await service.sendAccountExistsEmail(
+			'test@example.test',
+			'<b>Owner</b>',
+		);
+		const message = (
+			sendMail.mock.calls as [
+				{ to: string; subject: string; html: string },
+			][]
+		)[0][0];
+		expect(message.to).toBe('test@example.test');
+		expect(message.subject).toBe(
+			'Sign-up Attempt for Your Account - MindCare',
+		);
+		expect(message.html).toContain('href="http://localhost:5173/sign-in"');
+		expect(message.html).toContain('Hello &lt;b&gt;Owner&lt;/b&gt;,');
+		expect(message.html).not.toMatch(/token=|\{\{/);
+	});
 	it('should propagate delivery failure when the mocked transport rejects', async () => {
 		sendMail.mockRejectedValue(new Error('synthetic-provider-failure'));
 		await expect(

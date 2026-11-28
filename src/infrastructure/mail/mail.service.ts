@@ -81,6 +81,24 @@ export class MailService implements OnModuleDestroy {
 		});
 	}
 
+	/** Sent instead of a 409 when someone signs up with an existing, verified email (API-001). */
+	async sendAccountExistsEmail(
+		email: string,
+		firstName: string,
+	): Promise<void> {
+		const html = this.templates.render('account-exists', {
+			firstName,
+			actionUrl: `${this.config.get('FRONTEND_URL', { infer: true })}/sign-in`,
+			year: String(new Date().getFullYear()),
+		});
+
+		await this.send({
+			to: email,
+			subject: 'Sign-up Attempt for Your Account - MindCare',
+			html,
+		});
+	}
+
 	private async send(message: Omit<MailMessage, 'from'>): Promise<void> {
 		try {
 			await this.transport.sendMail({

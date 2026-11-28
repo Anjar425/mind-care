@@ -5,6 +5,14 @@ import { UserRole } from '@/shared/types/role';
 import { account, createPrismaMock } from '../../../test/auth-mocks';
 import { UserService } from './user.service';
 
+// Real bcrypt, observable: the namespace export cannot be spied on directly.
+jest.mock('bcrypt', () => {
+	const actual = jest.requireActual<typeof import('bcrypt')>('bcrypt');
+	const hash = (data: string | Buffer, saltOrRounds: string | number) =>
+		actual.hash(data, saltOrRounds);
+	return { ...actual, hash: jest.fn().mockImplementation(hash) };
+});
+
 describe('UserService', () => {
 	let service: UserService;
 	let module: TestingModule;
@@ -31,8 +39,32 @@ describe('UserService', () => {
 		await module.close();
 	});
 
-	it('should create a normalized identity and safe selection when input is valid', async () => {
-		await service.create(dto);
+	const registrationSelect = {
+		id: true,
+		name: true,
+		email: true,
+		emailVerifiedAt: true,
+	};
+	const existing = {
+		id: 'existing',
+		name: 'Owner',
+		email: ' User@Example.com ',
+		emailVerifiedAt: new Date(),
+	};
+	function hashedPassword(): string {
+		const call: unknown = prisma.user.create.mock.calls[0][0];
+		if (!call || typeof call !== 'object' || !('data' in call))
+			throw new Error('Missing create');
+		return (call.data as { password: string }).password;
+	}
+
+	it('should create a normalized identity when the email is new', async () => {
+		const created = { ...existing, id: 'new', emailVerifiedAt: null };
+		prisma.user.create.mockResolvedValue(created);
+		await expect(service.register(dto)).resolves.toEqual({
+			created: true,
+			account: created,
+		});
 		expect(prisma.user.create).toHaveBeenCalledWith({
 			data: {
 				name: dto.name,
@@ -41,51 +73,57 @@ describe('UserService', () => {
 				role: 'USER',
 				createdAt: expect.any(Date) as unknown,
 			},
-			select: {
-				id: true,
-				name: true,
-				email: true,
-				role: true,
-				createdAt: true,
-			},
+			select: registrationSelect,
 		});
-		const call: unknown = prisma.user.create.mock.calls[0][0];
-		if (!call || typeof call !== 'object' || !('data' in call))
-			throw new Error('Missing create');
-		const data = call.data as { password: string };
-		expect(await bcrypt.compare(dto.password, data.password)).toBe(true);
+		expect(await bcrypt.compare(dto.password, hashedPassword())).toBe(true);
 	});
 
-	it('should reject creation when a legacy case or whitespace variant already exists', async () => {
-		prisma.user.findMany.mockResolvedValue([
-			{ id: 'existing', email: ' User@Example.com ' },
-		]);
-		await expect(service.create(dto)).rejects.toThrow(
-			'Account identity already exists',
-		);
+	it('should return the existing account instead of a conflict, including legacy case or whitespace variants', async () => {
+		prisma.user.findMany.mockResolvedValue([existing]);
+		await expect(service.register(dto)).resolves.toEqual({
+			created: false,
+			account: existing,
+		});
 		expect(prisma.user.create).not.toHaveBeenCalled();
 	});
 
-	it('should reject creation when password exceeds the bcrypt byte limit', async () => {
+	it('should hash the password even when the email exists so both paths take the same time', async () => {
+		prisma.user.findMany.mockResolvedValue([existing]);
+		await service.register(dto);
+		expect(jest.mocked(bcrypt.hash)).toHaveBeenCalledWith(dto.password, 10);
+	});
+
+	it('should reject registration when password exceeds the bcrypt byte limit', async () => {
 		await expect(
-			service.create({ ...dto, password: 'Aa1' + 'é'.repeat(35) }),
+			service.register({ ...dto, password: 'Aa1' + 'é'.repeat(35) }),
 		).rejects.toThrow('72 UTF-8 bytes');
 		expect(prisma.user.create).not.toHaveBeenCalled();
 	});
 
-	it('should map a unique write race when the database rejects creation', async () => {
+	it('should return the account that won a concurrent sign-up when the database reports a unique conflict', async () => {
+		prisma.user.findMany
+			.mockResolvedValueOnce([])
+			.mockResolvedValueOnce([existing]);
 		prisma.user.create.mockRejectedValue({
 			code: 'P2002',
 			detail: 'PRIVATE_DB_DETAIL',
 		});
-		await expect(service.create(dto)).rejects.toThrow(
+		await expect(service.register(dto)).resolves.toEqual({
+			created: false,
+			account: existing,
+		});
+	});
+
+	it('should keep the generic conflict when a unique violation has no matching account', async () => {
+		prisma.user.create.mockRejectedValue({ code: 'P2002' });
+		await expect(service.register(dto)).rejects.toThrow(
 			'Account identity already exists',
 		);
 	});
 
 	it('should propagate infrastructure failure when a write is not a uniqueness conflict', async () => {
 		prisma.user.create.mockRejectedValue(new Error('Unavailable'));
-		await expect(service.create(dto)).rejects.toThrow('Unavailable');
+		await expect(service.register(dto)).rejects.toThrow('Unavailable');
 	});
 
 	it('should resolve legacy email when exactly one canonical identity matches', async () => {

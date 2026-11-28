@@ -90,7 +90,10 @@ describe('GlobalExceptionFilter', () => {
 			message: ['Internal server error'],
 			error: 'Internal Server Error',
 		});
-		expect(log).toHaveBeenCalledWith('API request failed');
+		expect(log).toHaveBeenCalledWith(
+			expect.stringMatching(/^API request failed \(/),
+		);
+		expect(JSON.stringify(log.mock.calls)).not.toContain('PRIVATE');
 		expect(JSON.stringify(response.json.mock.calls)).not.toContain(
 			'PRIVATE',
 		);

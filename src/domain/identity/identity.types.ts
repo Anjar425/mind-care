@@ -21,6 +21,17 @@ export interface CreateUserInput {
 	emailVerifiedAt?: string;
 }
 
+/** The account a sign-up attempt ended at; never returned to the client (API-001). */
+export interface RegistrationOutcome {
+	created: boolean;
+	account: {
+		id: string;
+		name: string;
+		email: string;
+		emailVerifiedAt: Date | null;
+	};
+}
+
 export interface UpdateUserInput {
 	email?: string;
 	name?: string;

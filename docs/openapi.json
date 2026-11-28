@@ -28,7 +28,7 @@
 								"$ref": "#/components/schemas/ErrorCode"
 							}
 						],
-						"description": "Stable machine-readable error code; branch on this, not on message text. VALIDATION_FAILED: The body, query or path parameters were rejected. UNAUTHENTICATED: Missing, expired or invalid credentials. FORBIDDEN: Authenticated, but not allowed to perform this operation. NOT_FOUND: The resource or route does not exist for this caller. CONFLICT: The resource changed concurrently or is in a conflicting state. PAYLOAD_TOO_LARGE: The request body exceeds the accepted size. UNSUPPORTED_MEDIA_TYPE: Only uncompressed UTF-8 JSON (or the documented upload type) is accepted. RATE_LIMITED: Too many requests; retry after the Retry-After seconds. REQUEST_REJECTED: The request was rejected for another client-side reason. INTERNAL_ERROR: Unexpected server failure; no details are disclosed. UNAVAILABLE: A dependency is temporarily unavailable; retry later. HISTORY_INVALID_REQUEST: The private history request was rejected. HISTORY_ACCESS_DENIED: A personal USER or EXPERT account is required. HISTORY_NOT_FOUND: The private history resource does not exist. HISTORY_STATE_CHANGED: The vault changed or storage is unavailable; reload before retrying. HISTORY_TOO_LARGE: The private history request exceeds capacity. SCREENING_INVALID_REQUEST: The screening request was rejected. SCREENING_ROLE_REQUIRED: Screening with an account requires a USER or EXPERT role. SCREENING_SOURCE_UNAVAILABLE: The selected screening source is not available. SCREENING_SOURCE_NOT_READY: The catalog or source is not ready; reload or choose another source. SCREENING_TOO_LARGE: The screening request exceeds capacity.",
+						"description": "Stable machine-readable error code; branch on this, not on message text. VALIDATION_FAILED: The body, query or path parameters were rejected. UNAUTHENTICATED: Missing, expired or invalid credentials. FORBIDDEN: Authenticated, but not allowed to perform this operation. EMAIL_NOT_VERIFIED: The password is correct, but the account email is not verified yet; request a new verification link. NOT_FOUND: The resource or route does not exist for this caller. CONFLICT: The resource changed concurrently or is in a conflicting state. PAYLOAD_TOO_LARGE: The request body exceeds the accepted size. UNSUPPORTED_MEDIA_TYPE: Only uncompressed UTF-8 JSON (or the documented upload type) is accepted. RATE_LIMITED: Too many requests; retry after the Retry-After seconds. REQUEST_REJECTED: The request was rejected for another client-side reason. INTERNAL_ERROR: Unexpected server failure; no details are disclosed. UNAVAILABLE: A dependency is temporarily unavailable; retry later. HISTORY_INVALID_REQUEST: The private history request was rejected. HISTORY_ACCESS_DENIED: A personal USER or EXPERT account is required. HISTORY_NOT_FOUND: The private history resource does not exist. HISTORY_STATE_CHANGED: The vault changed or storage is unavailable; reload before retrying. HISTORY_TOO_LARGE: The private history request exceeds capacity. SCREENING_INVALID_REQUEST: The screening request was rejected. SCREENING_ROLE_REQUIRED: Screening with an account requires a USER or EXPERT role. SCREENING_SOURCE_UNAVAILABLE: The selected screening source is not available. SCREENING_SOURCE_NOT_READY: The catalog or source is not ready; reload or choose another source. SCREENING_TOO_LARGE: The screening request exceeds capacity.",
 						"example": "VALIDATION_FAILED"
 					},
 					"error": {
@@ -1191,11 +1191,12 @@
 				"type": "object"
 			},
 			"ErrorCode": {
-				"description": "Stable machine-readable error code; branch on this, not on message text. VALIDATION_FAILED: The body, query or path parameters were rejected. UNAUTHENTICATED: Missing, expired or invalid credentials. FORBIDDEN: Authenticated, but not allowed to perform this operation. NOT_FOUND: The resource or route does not exist for this caller. CONFLICT: The resource changed concurrently or is in a conflicting state. PAYLOAD_TOO_LARGE: The request body exceeds the accepted size. UNSUPPORTED_MEDIA_TYPE: Only uncompressed UTF-8 JSON (or the documented upload type) is accepted. RATE_LIMITED: Too many requests; retry after the Retry-After seconds. REQUEST_REJECTED: The request was rejected for another client-side reason. INTERNAL_ERROR: Unexpected server failure; no details are disclosed. UNAVAILABLE: A dependency is temporarily unavailable; retry later. HISTORY_INVALID_REQUEST: The private history request was rejected. HISTORY_ACCESS_DENIED: A personal USER or EXPERT account is required. HISTORY_NOT_FOUND: The private history resource does not exist. HISTORY_STATE_CHANGED: The vault changed or storage is unavailable; reload before retrying. HISTORY_TOO_LARGE: The private history request exceeds capacity. SCREENING_INVALID_REQUEST: The screening request was rejected. SCREENING_ROLE_REQUIRED: Screening with an account requires a USER or EXPERT role. SCREENING_SOURCE_UNAVAILABLE: The selected screening source is not available. SCREENING_SOURCE_NOT_READY: The catalog or source is not ready; reload or choose another source. SCREENING_TOO_LARGE: The screening request exceeds capacity.",
+				"description": "Stable machine-readable error code; branch on this, not on message text. VALIDATION_FAILED: The body, query or path parameters were rejected. UNAUTHENTICATED: Missing, expired or invalid credentials. FORBIDDEN: Authenticated, but not allowed to perform this operation. EMAIL_NOT_VERIFIED: The password is correct, but the account email is not verified yet; request a new verification link. NOT_FOUND: The resource or route does not exist for this caller. CONFLICT: The resource changed concurrently or is in a conflicting state. PAYLOAD_TOO_LARGE: The request body exceeds the accepted size. UNSUPPORTED_MEDIA_TYPE: Only uncompressed UTF-8 JSON (or the documented upload type) is accepted. RATE_LIMITED: Too many requests; retry after the Retry-After seconds. REQUEST_REJECTED: The request was rejected for another client-side reason. INTERNAL_ERROR: Unexpected server failure; no details are disclosed. UNAVAILABLE: A dependency is temporarily unavailable; retry later. HISTORY_INVALID_REQUEST: The private history request was rejected. HISTORY_ACCESS_DENIED: A personal USER or EXPERT account is required. HISTORY_NOT_FOUND: The private history resource does not exist. HISTORY_STATE_CHANGED: The vault changed or storage is unavailable; reload before retrying. HISTORY_TOO_LARGE: The private history request exceeds capacity. SCREENING_INVALID_REQUEST: The screening request was rejected. SCREENING_ROLE_REQUIRED: Screening with an account requires a USER or EXPERT role. SCREENING_SOURCE_UNAVAILABLE: The selected screening source is not available. SCREENING_SOURCE_NOT_READY: The catalog or source is not ready; reload or choose another source. SCREENING_TOO_LARGE: The screening request exceeds capacity.",
 				"enum": [
 					"VALIDATION_FAILED",
 					"UNAUTHENTICATED",
 					"FORBIDDEN",
+					"EMAIL_NOT_VERIFIED",
 					"NOT_FOUND",
 					"CONFLICT",
 					"PAYLOAD_TOO_LARGE",
@@ -1225,7 +1226,7 @@
 								"$ref": "#/components/schemas/ErrorCode"
 							}
 						],
-						"description": "Stable machine-readable error code; branch on this, not on message text. VALIDATION_FAILED: The body, query or path parameters were rejected. UNAUTHENTICATED: Missing, expired or invalid credentials. FORBIDDEN: Authenticated, but not allowed to perform this operation. NOT_FOUND: The resource or route does not exist for this caller. CONFLICT: The resource changed concurrently or is in a conflicting state. PAYLOAD_TOO_LARGE: The request body exceeds the accepted size. UNSUPPORTED_MEDIA_TYPE: Only uncompressed UTF-8 JSON (or the documented upload type) is accepted. RATE_LIMITED: Too many requests; retry after the Retry-After seconds. REQUEST_REJECTED: The request was rejected for another client-side reason. INTERNAL_ERROR: Unexpected server failure; no details are disclosed. UNAVAILABLE: A dependency is temporarily unavailable; retry later. HISTORY_INVALID_REQUEST: The private history request was rejected. HISTORY_ACCESS_DENIED: A personal USER or EXPERT account is required. HISTORY_NOT_FOUND: The private history resource does not exist. HISTORY_STATE_CHANGED: The vault changed or storage is unavailable; reload before retrying. HISTORY_TOO_LARGE: The private history request exceeds capacity. SCREENING_INVALID_REQUEST: The screening request was rejected. SCREENING_ROLE_REQUIRED: Screening with an account requires a USER or EXPERT role. SCREENING_SOURCE_UNAVAILABLE: The selected screening source is not available. SCREENING_SOURCE_NOT_READY: The catalog or source is not ready; reload or choose another source. SCREENING_TOO_LARGE: The screening request exceeds capacity.",
+						"description": "Stable machine-readable error code; branch on this, not on message text. VALIDATION_FAILED: The body, query or path parameters were rejected. UNAUTHENTICATED: Missing, expired or invalid credentials. FORBIDDEN: Authenticated, but not allowed to perform this operation. EMAIL_NOT_VERIFIED: The password is correct, but the account email is not verified yet; request a new verification link. NOT_FOUND: The resource or route does not exist for this caller. CONFLICT: The resource changed concurrently or is in a conflicting state. PAYLOAD_TOO_LARGE: The request body exceeds the accepted size. UNSUPPORTED_MEDIA_TYPE: Only uncompressed UTF-8 JSON (or the documented upload type) is accepted. RATE_LIMITED: Too many requests; retry after the Retry-After seconds. REQUEST_REJECTED: The request was rejected for another client-side reason. INTERNAL_ERROR: Unexpected server failure; no details are disclosed. UNAVAILABLE: A dependency is temporarily unavailable; retry later. HISTORY_INVALID_REQUEST: The private history request was rejected. HISTORY_ACCESS_DENIED: A personal USER or EXPERT account is required. HISTORY_NOT_FOUND: The private history resource does not exist. HISTORY_STATE_CHANGED: The vault changed or storage is unavailable; reload before retrying. HISTORY_TOO_LARGE: The private history request exceeds capacity. SCREENING_INVALID_REQUEST: The screening request was rejected. SCREENING_ROLE_REQUIRED: Screening with an account requires a USER or EXPERT role. SCREENING_SOURCE_UNAVAILABLE: The selected screening source is not available. SCREENING_SOURCE_NOT_READY: The catalog or source is not ready; reload or choose another source. SCREENING_TOO_LARGE: The screening request exceeds capacity.",
 						"example": "VALIDATION_FAILED"
 					},
 					"error": {
@@ -3313,65 +3314,6 @@
 					"name",
 					"password",
 					"confirm_password"
-				],
-				"type": "object"
-			},
-			"RegisterResDto": {
-				"properties": {
-					"user": {
-						"allOf": [
-							{
-								"$ref": "#/components/schemas/RegisteredAuthUserResDto"
-							}
-						],
-						"description": "Created account; expert credentials are verified separately"
-					}
-				},
-				"required": [
-					"user"
-				],
-				"type": "object"
-			},
-			"RegisteredAuthUserResDto": {
-				"properties": {
-					"created_at": {
-						"description": "Account creation time",
-						"example": "2026-01-01T00:00:00.000Z",
-						"format": "date-time",
-						"type": "string"
-					},
-					"email": {
-						"description": "Account email identity",
-						"example": "user@example.com",
-						"type": "string"
-					},
-					"id": {
-						"description": "Account identifier",
-						"example": "00000000-0000-4000-8000-000000000001",
-						"type": "string"
-					},
-					"name": {
-						"description": "Registered account name",
-						"example": "Example User",
-						"type": "string"
-					},
-					"role": {
-						"description": "Account role; EXPERT does not imply credential approval",
-						"enum": [
-							"USER",
-							"ADMIN",
-							"EXPERT"
-						],
-						"example": "USER",
-						"type": "string"
-					}
-				},
-				"required": [
-					"id",
-					"name",
-					"email",
-					"role",
-					"created_at"
 				],
 				"type": "object"
 			},
@@ -13328,7 +13270,7 @@
 		},
 		"/api/v1/auth/expert/login": {
 			"post": {
-				"description": "Accepts EXPERT accounts only; sign-in does not approve professional credentials.",
+				"description": "Accepts EXPERT accounts only; sign-in does not approve professional credentials. A correct password on an unverified email returns 403 EMAIL_NOT_VERIFIED.",
 				"operationId": "AuthController_expertLogin_v1",
 				"parameters": [],
 				"requestBody": {
@@ -13440,6 +13382,41 @@
 												},
 												"statusCode": {
 													"example": 401,
+													"type": "integer"
+												}
+											}
+										}
+									]
+								}
+							}
+						},
+						"description": ""
+					},
+					"403": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/AuthErrorResponseDto"
+										},
+										{
+											"properties": {
+												"error": {
+													"example": "Forbidden",
+													"type": "string"
+												},
+												"message": {
+													"example": [
+														"Verify your email before signing in"
+													],
+													"items": {
+														"type": "string"
+													},
+													"type": "array"
+												},
+												"statusCode": {
+													"example": 403,
 													"type": "integer"
 												}
 											}
@@ -13564,7 +13541,7 @@
 		},
 		"/api/v1/auth/expert/register": {
 			"post": {
-				"description": "Credential approval and calculation eligibility are separate from account registration.",
+				"description": "Credential approval and calculation eligibility are separate from account registration. The response is the same whether or not the email is already registered: a new or unverified address receives a verification link, a verified one receives a sign-in notice.",
 				"operationId": "AuthController_expertRegister_v1",
 				"parameters": [],
 				"requestBody": {
@@ -13589,7 +13566,7 @@
 										{
 											"properties": {
 												"message": {
-													"example": "Expert account created successfully",
+													"example": "Registration received; check your email to continue",
 													"type": "string"
 												},
 												"statusCode": {
@@ -13598,23 +13575,12 @@
 												}
 											},
 											"type": "object"
-										},
-										{
-											"properties": {
-												"data": {
-													"$ref": "#/components/schemas/RegisterResDto"
-												}
-											},
-											"required": [
-												"data"
-											],
-											"type": "object"
 										}
 									]
 								}
 							}
 						},
-						"description": "Expert account created successfully"
+						"description": "Registration received; check your email to continue"
 					},
 					"400": {
 						"content": {
@@ -13641,41 +13607,6 @@
 												},
 												"statusCode": {
 													"example": 400,
-													"type": "integer"
-												}
-											}
-										}
-									]
-								}
-							}
-						},
-						"description": ""
-					},
-					"409": {
-						"content": {
-							"application/json": {
-								"schema": {
-									"allOf": [
-										{
-											"$ref": "#/components/schemas/AuthErrorResponseDto"
-										},
-										{
-											"properties": {
-												"error": {
-													"example": "Conflict",
-													"type": "string"
-												},
-												"message": {
-													"example": [
-														"Account identity already exists"
-													],
-													"items": {
-														"type": "string"
-													},
-													"type": "array"
-												},
-												"statusCode": {
-													"example": 409,
 													"type": "integer"
 												}
 											}
@@ -13920,7 +13851,7 @@
 		},
 		"/api/v1/auth/login": {
 			"post": {
-				"description": "Accepts USER accounts only. Legacy tokens without a session identity require a new sign-in.",
+				"description": "Accepts USER accounts only. Legacy tokens without a session identity require a new sign-in. A correct password on an unverified email returns 403 EMAIL_NOT_VERIFIED.",
 				"operationId": "AuthController_login_v1",
 				"parameters": [],
 				"requestBody": {
@@ -14032,6 +13963,41 @@
 												},
 												"statusCode": {
 													"example": 401,
+													"type": "integer"
+												}
+											}
+										}
+									]
+								}
+							}
+						},
+						"description": ""
+					},
+					"403": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/AuthErrorResponseDto"
+										},
+										{
+											"properties": {
+												"error": {
+													"example": "Forbidden",
+													"type": "string"
+												},
+												"message": {
+													"example": [
+														"Verify your email before signing in"
+													],
+													"items": {
+														"type": "string"
+													},
+													"type": "array"
+												},
+												"statusCode": {
+													"example": 403,
 													"type": "integer"
 												}
 											}
@@ -14833,6 +14799,7 @@
 		},
 		"/api/v1/auth/user/register": {
 			"post": {
+				"description": "The response is the same whether or not the email is already registered: a new or unverified address receives a verification link, a verified one receives a sign-in notice.",
 				"operationId": "AuthController_userRegister_v1",
 				"parameters": [],
 				"requestBody": {
@@ -14857,7 +14824,7 @@
 										{
 											"properties": {
 												"message": {
-													"example": "User created successfully",
+													"example": "Registration received; check your email to continue",
 													"type": "string"
 												},
 												"statusCode": {
@@ -14866,23 +14833,12 @@
 												}
 											},
 											"type": "object"
-										},
-										{
-											"properties": {
-												"data": {
-													"$ref": "#/components/schemas/RegisterResDto"
-												}
-											},
-											"required": [
-												"data"
-											],
-											"type": "object"
 										}
 									]
 								}
 							}
 						},
-						"description": "User created successfully"
+						"description": "Registration received; check your email to continue"
 					},
 					"400": {
 						"content": {
@@ -14909,41 +14865,6 @@
 												},
 												"statusCode": {
 													"example": 400,
-													"type": "integer"
-												}
-											}
-										}
-									]
-								}
-							}
-						},
-						"description": ""
-					},
-					"409": {
-						"content": {
-							"application/json": {
-								"schema": {
-									"allOf": [
-										{
-											"$ref": "#/components/schemas/AuthErrorResponseDto"
-										},
-										{
-											"properties": {
-												"error": {
-													"example": "Conflict",
-													"type": "string"
-												},
-												"message": {
-													"example": [
-														"Account identity already exists"
-													],
-													"items": {
-														"type": "string"
-													},
-													"type": "array"
-												},
-												"statusCode": {
-													"example": 409,
 													"type": "integer"
 												}
 											}

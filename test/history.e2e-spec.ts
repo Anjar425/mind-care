@@ -211,7 +211,10 @@ describe('Private history HTTP: actual JWT session guard and services, synthetic
 			.auth(token(), { type: 'bearer' })
 			.expect(503);
 		expect(JSON.stringify(response.body)).not.toContain('private result');
-		expect(log).toHaveBeenCalledWith('API request failed');
+		expect(log).toHaveBeenCalledWith(
+			expect.stringMatching(/^API request failed \(/),
+		);
+		expect(JSON.stringify(log.mock.calls)).not.toContain('private result');
 	});
 	it('should publish typed private routes and omit admin/decrypt endpoints', () => {
 		const doc = SwaggerModule.createDocument(

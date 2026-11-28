@@ -29,7 +29,12 @@ export const RATE_LIMIT_ACTIONS = {
 		account: 'RATE_LIMIT_LOGIN_ACCOUNT',
 		failClosed: true,
 	},
-	register: { limit: 'RATE_LIMIT_REGISTER', failClosed: true },
+	// Per address too: every attempt on an existing email sends its owner a notice (API-001).
+	register: {
+		limit: 'RATE_LIMIT_REGISTER',
+		account: 'RATE_LIMIT_EMAIL_ACCOUNT',
+		failClosed: true,
+	},
 	forgot: {
 		limit: 'RATE_LIMIT_FORGOT_PASSWORD',
 		account: 'RATE_LIMIT_EMAIL_ACCOUNT',
