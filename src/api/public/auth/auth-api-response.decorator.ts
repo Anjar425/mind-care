@@ -4,6 +4,7 @@ import {
 	ApiConflictResponse,
 	ApiCreatedResponse,
 	ApiExtraModels,
+	ApiForbiddenResponse,
 	ApiInternalServerErrorResponse,
 	ApiOkResponse,
 	ApiUnauthorizedResponse,
@@ -17,7 +18,7 @@ import {
 	AuthSuccessResponseDto,
 } from './dto/res/auth-response.dto';
 
-type ErrorStatus = 400 | 401 | 409 | 500;
+type ErrorStatus = 400 | 401 | 403 | 409 | 500;
 
 export function AuthApiResponse(
 	status: 200 | 201,
@@ -51,6 +52,7 @@ export function AuthApiResponse(
 	const errorDecorators = {
 		400: ApiBadRequestResponse,
 		401: ApiUnauthorizedResponse,
+		403: ApiForbiddenResponse,
 		409: ApiConflictResponse,
 		500: ApiInternalServerErrorResponse,
 		429: ApiTooManyRequestsResponse,
@@ -58,6 +60,11 @@ export function AuthApiResponse(
 	const errorExamples = {
 		400: { message: ['Invalid request'], error: 'Bad Request' },
 		401: { message: ['Invalid credentials'], error: 'Unauthorized' },
+		// Only after a correct password; code EMAIL_NOT_VERIFIED.
+		403: {
+			message: ['Verify your email before signing in'],
+			error: 'Forbidden',
+		},
 		409: {
 			message: ['Account identity already exists'],
 			error: 'Conflict',

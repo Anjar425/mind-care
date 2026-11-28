@@ -1,5 +1,6 @@
 import {
 	BadRequestException,
+	ForbiddenException,
 	Injectable,
 	Logger,
 	ServiceUnavailableException,
@@ -19,6 +20,7 @@ import {
 } from '@/domain/identity/account-validation.util';
 import { generateToken, hashToken } from '@/domain/identity/token.util';
 import { AuthSessionService } from './auth-session.service';
+import { requiresVerifiedEmail } from './email-verification.policy';
 import { withTransaction } from '../../infrastructure/prisma/transaction';
 import type {
 	AccessPrincipal,
@@ -42,26 +44,39 @@ export class AuthService {
 		private readonly events: SecurityEventService,
 	) {}
 
-	async register(dto: RegisterInput, role: UserRole) {
+	/**
+	 * Same response whether or not the email is registered (API-001), so sign-up cannot be used to
+	 * find accounts. Only the email differs: a new or still unverified account gets a verification
+	 * link, a verified one gets a notice pointing to sign-in and password recovery.
+	 */
+	async register(dto: RegisterInput, role: UserRole): Promise<void> {
 		if (role !== UserRole.USER && role !== UserRole.EXPERT) {
 			throw new BadRequestException('Unsupported registration type');
 		}
-		const user = await this.userService.create({
+		const { created, account } = await this.userService.register({
 			name: dto.name,
 			email: normalizeEmail(dto.email),
 			password: dto.password,
 			role,
 		});
-		void this.sendVerificationEmail(user.email);
-		return {
-			user: {
-				id: user.id,
-				name: user.name,
-				email: user.email,
-				role: user.role,
-				created_at: user.createdAt,
-			},
-		};
+		if (created || !account.emailVerifiedAt)
+			void this.sendVerificationEmail(account.email);
+		else void this.sendAccountExistsNotice(account.email, account.name);
+	}
+
+	private async sendAccountExistsNotice(
+		email: string,
+		name: string,
+	): Promise<void> {
+		try {
+			await this.mailService.sendAccountExistsEmail(
+				normalizeEmail(email),
+				name,
+			);
+		} catch {
+			// Never log the address, the account or provider errors.
+			this.logger.error('Account notice could not be completed');
+		}
 	}
 
 	async login(dto: LoginInput, role: UserRole) {
@@ -86,6 +101,19 @@ export class AuthService {
 				subjectUserId: user?.id,
 			});
 			throw new UnauthorizedException('Invalid credentials');
+		}
+		// Self-registered accounts must prove the email first; administrators are provisioned by
+		// operators. Checked only after the password matched, so it reveals nothing about which
+		// emails are registered.
+		if (requiresVerifiedEmail(user.role) && !user.emailVerifiedAt) {
+			await this.events.record('LOGIN_FAILED', {
+				subjectUserId: user.id,
+			});
+			throw new ForbiddenException({
+				message: 'Verify your email before signing in',
+				error: 'Forbidden',
+				code: 'EMAIL_NOT_VERIFIED',
+			});
 		}
 		const tokens = await this.sessions.create(user.id, user.password, role);
 		await this.events.record('LOGIN_SUCCEEDED', {
@@ -268,6 +296,11 @@ export class AuthService {
 					where: { id: reset.userId },
 					data: { password },
 					select: { id: true },
+				});
+				// The reset link proved control of the mailbox, which is what verification proves.
+				await tx.user.updateMany({
+					where: { id: reset.userId, emailVerifiedAt: null },
+					data: { emailVerifiedAt: now },
 				});
 				await tx.refreshToken.deleteMany({
 					where: { userId: reset.userId },

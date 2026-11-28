@@ -56,7 +56,10 @@ describe('Private history error redaction', () => {
 				switchToHttp: () => ({ getResponse: () => response }),
 			} as unknown as ArgumentsHost,
 		);
-		expect(logger).toHaveBeenCalledWith('API request failed');
+		expect(logger).toHaveBeenCalledWith(
+			expect.stringMatching(/^API request failed \(/),
+		);
+		expect(JSON.stringify(logger.mock.calls)).not.toContain('private');
 		expect(JSON.stringify(response.json.mock.calls)).not.toContain(
 			'private answer',
 		);

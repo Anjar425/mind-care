@@ -50,7 +50,8 @@ export function createAuthMemoryStore(password: string) {
 			email: `${role.toLowerCase()}@example.com`,
 			password,
 			role,
-			emailVerifiedAt: null,
+			// Signed-in fixtures need a verified email; tests that need one unverified clear it.
+			emailVerifiedAt: new Date(),
 			createdAt: new Date(),
 		});
 	}
@@ -142,6 +143,23 @@ export function createAuthMemoryStore(password: string) {
 						);
 					Object.assign(current, data);
 					return Promise.resolve(current);
+				},
+			),
+			updateMany: jest.fn(
+				({
+					where,
+					data,
+				}: {
+					where: { id: string; emailVerifiedAt?: null };
+					data: Partial<TestUser>;
+				}) => {
+					const current = users.get(where.id);
+					const matches =
+						current &&
+						(where.emailVerifiedAt !== null ||
+							current.emailVerifiedAt === null);
+					if (matches) Object.assign(current, data);
+					return Promise.resolve({ count: matches ? 1 : 0 });
 				},
 			),
 		},

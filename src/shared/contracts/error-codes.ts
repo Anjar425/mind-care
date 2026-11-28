@@ -6,6 +6,8 @@ export const ERROR_CODES = {
 	VALIDATION_FAILED: 'The body, query or path parameters were rejected',
 	UNAUTHENTICATED: 'Missing, expired or invalid credentials',
 	FORBIDDEN: 'Authenticated, but not allowed to perform this operation',
+	EMAIL_NOT_VERIFIED:
+		'The password is correct, but the account email is not verified yet; request a new verification link',
 	NOT_FOUND: 'The resource or route does not exist for this caller',
 	CONFLICT: 'The resource changed concurrently or is in a conflicting state',
 	PAYLOAD_TOO_LARGE: 'The request body exceeds the accepted size',

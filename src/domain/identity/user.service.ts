@@ -7,41 +7,57 @@ import {
 
 import { PrismaService } from '@/infrastructure/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import type { CreateUserInput, UpdateUserInput } from './identity.types';
+import type {
+	CreateUserInput,
+	RegistrationOutcome,
+	UpdateUserInput,
+} from './identity.types';
+import { hasDatabaseCode } from '../../infrastructure/prisma/transaction';
 import {
 	assertPassword,
 	normalizeEmail,
 } from '@/domain/identity/account-validation.util';
 
-const SAFE_USER_SELECT = {
+const REGISTRATION_SELECT = {
 	id: true,
 	name: true,
 	email: true,
-	role: true,
-	createdAt: true,
+	emailVerifiedAt: true,
 } as const;
 
 @Injectable()
 export class UserService {
 	constructor(private readonly prismaService: PrismaService) {}
 
-	async create(createUserDto: CreateUserInput) {
-		assertPassword(createUserDto.password);
-		const email = normalizeEmail(createUserDto.email);
-		await this.assertEmailAvailable(email);
-		const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+	/**
+	 * Public sign-up that does not reveal whether the email is registered (API-001): the password
+	 * is hashed in every case (bcrypt dominates the time), and an existing account, including one
+	 * that wins a concurrent insert, is returned instead of a 409. The caller decides which email to
+	 * send; the HTTP response is the same either way.
+	 */
+	async register(input: CreateUserInput): Promise<RegistrationOutcome> {
+		assertPassword(input.password);
+		const email = normalizeEmail(input.email);
+		const hashedPassword = await bcrypt.hash(input.password, 10);
+		const existing = await this.findExisting(email);
+		if (existing) return { created: false, account: existing };
 		try {
-			return await this.prismaService.user.create({
+			const account = await this.prismaService.user.create({
 				data: {
 					email,
-					name: createUserDto.name,
+					name: input.name,
 					password: hashedPassword,
-					role: createUserDto.role,
+					role: input.role,
 					createdAt: new Date(),
 				},
-				select: SAFE_USER_SELECT,
+				select: REGISTRATION_SELECT,
 			});
+			return { created: true, account };
 		} catch (error: unknown) {
+			if (hasDatabaseCode(error, 'P2002')) {
+				const raced = await this.findExisting(email);
+				if (raced) return { created: false, account: raced };
+			}
 			this.rethrowWriteError(error);
 		}
 	}
@@ -140,6 +156,18 @@ export class UserService {
 		} catch (error: unknown) {
 			this.rethrowWriteError(error);
 		}
+	}
+
+	/** First account whose canonical email matches, including legacy case/whitespace variants. */
+	private async findExisting(email: string) {
+		const candidates = await this.prismaService.user.findMany({
+			where: { email: { contains: email, mode: 'insensitive' } },
+			select: REGISTRATION_SELECT,
+		});
+		return (
+			candidates.find((user) => normalizeEmail(user.email) === email) ??
+			null
+		);
 	}
 
 	private async assertEmailAvailable(

@@ -14,10 +14,12 @@ import type {
 	SessionUser,
 } from './identity.types';
 import { IDENTITY_TX } from './identity-persistence';
+import { requiresVerifiedEmail } from './email-verification.policy';
 import { SecurityEventService } from '../security-events/security-event.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const USER_SELECT = { id: true, name: true, email: true, role: true } as const;
+const SESSION_USER_SELECT = { ...USER_SELECT, emailVerifiedAt: true } as const;
 
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null;
@@ -111,7 +113,14 @@ export class AuthSessionService {
 
 	async rotate(principal: RefreshPrincipal): Promise<SessionTokens> {
 		const session = await this.session(principal.sub, principal.sid);
-		if (!session || session.user.role !== principal.role) this.deny();
+		if (
+			!session ||
+			session.user.role !== principal.role ||
+			// Sessions opened before login required a verified email end at their next refresh.
+			(requiresVerifiedEmail(session.user.role) &&
+				!session.user.emailVerifiedAt)
+		)
+			this.deny();
 		const tokens = this.sign(
 			this.publicUser(session.user),
 			principal.sid,
@@ -146,7 +155,7 @@ export class AuthSessionService {
 	private session(userId: string, sid: string) {
 		return this.prisma.refreshToken.findFirst({
 			where: { id: sid, userId, expiresAt: { gt: new Date() } },
-			include: { user: { select: USER_SELECT } },
+			include: { user: { select: SESSION_USER_SELECT } },
 		});
 	}
 

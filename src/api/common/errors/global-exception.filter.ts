@@ -9,6 +9,7 @@ import {
 import type { Response } from 'express';
 import { requestIdOf } from '../observability/request-observability.middleware';
 import { DEFAULT_MESSAGE } from './default-messages';
+import { failureKind } from './failure-kind';
 import {
 	isErrorCode,
 	type ErrorCode,
@@ -70,8 +71,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 				? candidate
 				: 500;
 		if (status >= 500) {
-			// No exception, stack, URL, request body or submitted value is logged.
-			this.logger.error('API request failed');
+			// Only the failure kind (class, symbolic code, first app frame) is logged: never the
+			// exception message, URL, request body or a submitted value.
+			this.logger.error(`API request failed (${failureKind(exception)})`);
 			return send(response, {
 				statusCode: status,
 				code: errorCodeFor(status),
@@ -100,7 +102,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 		const status =
 			exception instanceof HttpException ? exception.getStatus() : 500;
 		if (status >= 500) {
-			this.logger.error('Authentication request failed');
+			this.logger.error(
+				`Authentication request failed (${failureKind(exception)})`,
+			);
 			return send(response, {
 				statusCode: 500,
 				code: 'INTERNAL_ERROR',

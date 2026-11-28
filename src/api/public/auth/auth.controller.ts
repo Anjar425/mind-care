@@ -22,7 +22,6 @@ import { EmailVerificationReqDto } from './dto/req/email-verification.req.dto';
 import { ForgotPasswordReqDto } from './dto/req/forgot-password.req.dto';
 import { ResetPasswordReqDto } from './dto/req/reset-password.req.dto';
 import { VerifyAccountReqDto } from './dto/req/verify-account.req.dto';
-import { RegisterResDto } from './dto/res/register.res.dto';
 import { LoginResDto } from './dto/res/login.res.dto';
 import { AuthMessageResDto } from './dto/res/auth-response.dto';
 import type {
@@ -30,6 +29,9 @@ import type {
 	RefreshPrincipal,
 } from '../../../domain/identity/identity.types';
 import { RateLimit } from '../../common/rate-limit/rate-limit.decorator';
+
+const REGISTRATION_RECEIVED =
+	'Registration received; check your email to continue';
 
 @ApiTags('Auth')
 @ErrorPolicy('auth')
@@ -40,13 +42,12 @@ export class AuthController {
 	@Post('/user/register')
 	@RateLimit('register')
 	@HttpCode(HttpStatus.CREATED)
-	@ApiOperation({ summary: 'Register an ordinary user' })
-	@AuthApiResponse(
-		201,
-		'User created successfully',
-		RegisterResDto,
-		[400, 409, 500],
-	)
+	@ApiOperation({
+		summary: 'Register an ordinary user',
+		description:
+			'The response is the same whether or not the email is already registered: a new or unverified address receives a verification link, a verified one receives a sign-in notice.',
+	})
+	@AuthApiResponse(201, REGISTRATION_RECEIVED, undefined, [400, 500])
 	userRegister(@Body() dto: RegisterReqDto) {
 		return this.authService.register(dto, UserRole.USER);
 	}
@@ -56,15 +57,9 @@ export class AuthController {
 	@HttpCode(HttpStatus.CREATED)
 	@ApiOperation({
 		summary: 'Register an expert account',
-		description:
-			'Credential approval and calculation eligibility are separate from account registration.',
+		description: `Credential approval and calculation eligibility are separate from account registration. ${'The response is the same whether or not the email is already registered: a new or unverified address receives a verification link, a verified one receives a sign-in notice.'}`,
 	})
-	@AuthApiResponse(
-		201,
-		'Expert account created successfully',
-		RegisterResDto,
-		[400, 409, 500],
-	)
+	@AuthApiResponse(201, REGISTRATION_RECEIVED, undefined, [400, 500])
 	expertRegister(@Body() dto: RegisterReqDto) {
 		return this.authService.register(dto, UserRole.EXPERT);
 	}
@@ -75,9 +70,14 @@ export class AuthController {
 	@ApiOperation({
 		summary: 'Sign in an ordinary user',
 		description:
-			'Accepts USER accounts only. Legacy tokens without a session identity require a new sign-in.',
+			'Accepts USER accounts only. Legacy tokens without a session identity require a new sign-in. A correct password on an unverified email returns 403 EMAIL_NOT_VERIFIED.',
 	})
-	@AuthApiResponse(200, 'Login successful', LoginResDto, [400, 401, 409, 500])
+	@AuthApiResponse(
+		200,
+		'Login successful',
+		LoginResDto,
+		[400, 401, 403, 409, 500],
+	)
 	login(@Body() dto: LoginReqDto) {
 		return this.authService.login(dto, UserRole.USER);
 	}
@@ -88,9 +88,14 @@ export class AuthController {
 	@ApiOperation({
 		summary: 'Sign in an expert account',
 		description:
-			'Accepts EXPERT accounts only; sign-in does not approve professional credentials.',
+			'Accepts EXPERT accounts only; sign-in does not approve professional credentials. A correct password on an unverified email returns 403 EMAIL_NOT_VERIFIED.',
 	})
-	@AuthApiResponse(200, 'Login successful', LoginResDto, [400, 401, 409, 500])
+	@AuthApiResponse(
+		200,
+		'Login successful',
+		LoginResDto,
+		[400, 401, 403, 409, 500],
+	)
 	expertLogin(@Body() dto: LoginReqDto) {
 		return this.authService.login(dto, UserRole.EXPERT);
 	}

@@ -63,7 +63,10 @@ describe('GlobalExceptionFilter', () => {
 				error: 'Internal Server Error',
 			});
 			expect(logError).toHaveBeenCalledWith(
-				'Authentication request failed',
+				expect.stringMatching(/^Authentication request failed \(/),
+			);
+			expect(JSON.stringify(logError.mock.calls)).not.toContain(
+				'PRIVATE',
 			);
 		},
 	);

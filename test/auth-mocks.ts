@@ -5,6 +5,7 @@ export function createPrismaMock() {
 			findMany: jest.fn<Promise<unknown>, [unknown]>(),
 			create: jest.fn<Promise<unknown>, [unknown]>(),
 			update: jest.fn<Promise<unknown>, [unknown]>(),
+			updateMany: jest.fn<Promise<unknown>, [unknown]>(),
 			delete: jest.fn<Promise<unknown>, [unknown]>(),
 		},
 		refreshToken: {
@@ -40,6 +41,6 @@ export const account = {
 	email: 'user@example.com',
 	role: 'USER' as const,
 	password: 'synthetic-password-hash',
-	emailVerifiedAt: null,
+	emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z') as Date | null,
 	createdAt: new Date('2026-01-01T00:00:00.000Z'),
 };

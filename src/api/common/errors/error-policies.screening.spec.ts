@@ -39,7 +39,9 @@ describe('Sensitive-safe screening errors', () => {
 				switchToHttp: () => ({ getResponse: () => res }),
 			} as unknown as ArgumentsHost,
 		);
-		expect(logger).toHaveBeenCalledWith('API request failed');
+		expect(logger).toHaveBeenCalledWith(
+			expect.stringMatching(/^API request failed \(/),
+		);
 		expect(JSON.stringify(res.json.mock.calls)).not.toContain('private');
 		logger.mockRestore();
 	});
